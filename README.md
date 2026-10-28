@@ -65,4 +65,6 @@ Expected review: 2 × $18.00 items, $5.00 delivery, $41.00 total.
 - Run instructions: `cp .env.example .env && npm start`
 - License: MIT
 
+See [DEMO-WALKTHROUGH.md](./DEMO-WALKTHROUGH.md) for the under-three-minute recording outline and final demo checklist.
+
 This is a hackathon prototype. It is not a production payment system: it has no account authentication, persistent order storage, webhook verification, inventory checks, or live-payment support.
