@@ -32,7 +32,27 @@ async function boot() {
     // The form remains usable in preview mode when no server is connected.
   }
   renderConnectionState();
+  if (appConfig.aiMode === 'local') await loadPreviewSample();
   showPaymentReturn();
+}
+
+async function loadPreviewSample() {
+  const description = promptField.value.trim();
+  try {
+    const response = await fetch('/api/parse-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description }),
+    });
+    if (!response.ok) return;
+    currentOrder = await response.json();
+    currentOrder.sampleDemo = true;
+    currentOrder.note = 'Sample demo order. Review and edit every detail before checkout.';
+    renderOrder();
+    showNotice('Sample draft loaded with the local preview parser.', 'success');
+  } catch {
+    // The seller can still organize the sample manually when offline.
+  }
 }
 
 function renderConnectionState() {
@@ -150,6 +170,7 @@ function renderOrder() {
         checkoutButton.disabled = true;
         orderState.textContent = 'Waiting for a request';
         orderState.classList.remove('ready');
+        renderRouteAmounts(0);
         return;
       }
       renderOrder();
@@ -204,7 +225,7 @@ function renderTotals() {
   totalLabel.textContent = money(order.total);
   const valid = order.items.length > 0 && order.items.every((item) => item.quantity >= 1 && item.unitPrice > 0) && order.total > 0;
   checkoutButton.disabled = !valid;
-  orderState.textContent = valid ? 'Review before checkout' : 'Add item prices';
+  orderState.textContent = valid ? (currentOrder.sampleDemo ? 'Sample demo draft' : 'Review before checkout') : 'Add item prices';
   orderState.classList.toggle('ready', valid);
   renderRouteAmounts(order.total);
 }
@@ -271,7 +292,7 @@ for (const input of routeInputs) input.addEventListener('input', () => {
   const nonPayPalTotal = routeInputs.filter((route) => route.dataset.route !== 'paypal').reduce((sum, route) => sum + Number(route.value), 0);
   const paypal = routeInputs.find((route) => route.dataset.route === 'paypal');
   paypal.value = String(Math.max(0, 100 - nonPayPalTotal));
-  const total = currentOrder ? readOrderFromForm().total : 41;
+  const total = currentOrder ? readOrderFromForm().total : 0;
   renderRouteAmounts(total);
 });
 
@@ -295,7 +316,7 @@ for (const button of document.querySelectorAll('[data-pet-action]')) {
 }
 
 document.querySelector('#demo-nonce').textContent = `SC-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-renderRouteAmounts(41);
+renderRouteAmounts(0);
 
 function money(value) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);

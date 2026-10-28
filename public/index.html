@@ -13,9 +13,13 @@
     <div class="app-shell">
       <header class="topbar">
         <a class="wordmark" href="/" aria-label="SoloCart home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>SoloCart</span></a>
+        <nav class="topnav" aria-label="Main navigation">
+          <a href="#workspace">Order workspace</a>
+          <a href="#routes">Payment model</a>
+        </nav>
         <div class="topbar-right">
           <span class="mode-indicator"><span class="mode-dot"></span><span id="connection-label">Preview mode</span></span>
-          <button class="avatar" type="button" aria-label="Local demo profile">S</button>
+          <button class="avatar" type="button" aria-label="Local demo profile">D</button>
         </div>
       </header>
 
@@ -23,12 +27,12 @@
         <section class="intro" aria-labelledby="page-title">
           <div>
           <h1 id="page-title">From customer message<br><em>to confident checkout.</em></h1>
-            <p class="intro-copy">AI organizes the request. You review every detail. PayPal Sandbox handles buyer approval.</p>
+            <p class="intro-copy">Turn a customer message into an editable order draft. Review every detail before PayPal Sandbox buyer approval.</p>
           </div>
-          <div class="trust-note"><span class="trust-symbol" aria-hidden="true">SAFE</span><p><strong>You stay in control.</strong><br>Nothing is charged until the buyer approves in PayPal.</p></div>
+          <div class="trust-note"><span class="trust-symbol" aria-hidden="true">REVIEW</span><p><strong>You stay in control.</strong><br>Nothing is charged until the buyer approves in PayPal.</p></div>
         </section>
 
-        <section class="workspace" aria-label="Order builder">
+        <section class="workspace" id="workspace" aria-label="Order builder">
           <div class="composer panel">
             <div class="section-heading">
               <div><span class="step-number">A</span><h2>Start with the request</h2></div>
@@ -37,7 +41,7 @@
             <label for="order-prompt" class="field-label">What did your customer ask for?</label>
             <textarea id="order-prompt" rows="5" maxlength="1200" placeholder="For example: 2 handwoven baskets at $18 each, delivery $5"></textarea>
             <div class="composer-footer">
-              <p class="privacy-note" id="privacy-note"><span class="lock-icon" aria-hidden="true">◈</span> Order details stay on this device in preview mode.</p>
+              <p class="privacy-note" id="privacy-note">Order details stay on this device in preview mode.</p>
               <button class="button button-primary" id="prepare-order" type="button"><span>Organize order</span></button>
             </div>
             <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
@@ -63,15 +67,15 @@
           </aside>
         </section>
 
-        <section class="demo-grid" aria-label="Payment route and companion simulations">
+        <section class="demo-grid" id="routes" aria-label="Payment route and companion simulations">
           <article class="panel routes-panel">
             <div class="section-heading"><div><span class="step-number">C</span><h2>Payment routes</h2></div><span class="simulation-tag">SIMULATION</span></div>
             <p class="panel-intro">Explore how a future checkout could divide an order. Only PayPal Sandbox checkout moves through a payment provider.</p>
             <div class="route-list">
-              <label class="route-row"><span class="route-icon paypal-icon">P</span><span class="route-name"><strong>PayPal USD</strong><small>Sandbox checkout rail</small></span><input class="route-share" data-route="paypal" type="range" min="0" max="100" value="100" aria-label="PayPal USD simulated allocation" disabled><output data-route-value="paypal">100%</output></label>
-              <label class="route-row"><span class="route-icon privacy-icon">◈</span><span class="route-name"><strong>Privacy credit</strong><small>Illustrative data-credit concept</small></span><input class="route-share" data-route="privacy" type="range" min="0" max="100" value="0" aria-label="Privacy credit simulated allocation"><output data-route-value="privacy">$0.00</output></label>
-              <label class="route-row"><span class="route-icon token-icon">◇</span><span class="route-name"><strong>Conditional token</strong><small>Illustrative digital-token concept</small></span><input class="route-share" data-route="token" type="range" min="0" max="100" value="0" aria-label="Conditional token simulated allocation"><output data-route-value="token">$0.00</output></label>
-              <label class="route-row"><span class="route-icon offline-icon">↗</span><span class="route-name"><strong>Offline reserve</strong><small>Illustrative offline-payment concept</small></span><input class="route-share" data-route="offline" type="range" min="0" max="100" value="0" aria-label="Offline reserve simulated allocation"><output data-route-value="offline">$0.00</output></label>
+              <label class="route-row"><span class="route-icon paypal-icon">PP</span><span class="route-name"><strong>PayPal USD</strong><small>Sandbox checkout rail</small></span><input class="route-share" data-route="paypal" type="range" min="0" max="100" value="100" aria-label="PayPal USD simulated allocation" disabled><output data-route-value="paypal">100%</output></label>
+              <label class="route-row"><span class="route-icon privacy-icon">PC</span><span class="route-name"><strong>Privacy credit</strong><small>Illustrative data-credit concept</small></span><input class="route-share" data-route="privacy" type="range" min="0" max="100" value="0" aria-label="Privacy credit simulated allocation"><output data-route-value="privacy">$0.00</output></label>
+              <label class="route-row"><span class="route-icon token-icon">CT</span><span class="route-name"><strong>Conditional token</strong><small>Illustrative digital-token concept</small></span><input class="route-share" data-route="token" type="range" min="0" max="100" value="0" aria-label="Conditional token simulated allocation"><output data-route-value="token">$0.00</output></label>
+              <label class="route-row"><span class="route-icon offline-icon">OR</span><span class="route-name"><strong>Offline reserve</strong><small>Illustrative offline-payment concept</small></span><input class="route-share" data-route="offline" type="range" min="0" max="100" value="0" aria-label="Offline reserve simulated allocation"><output data-route-value="offline">$0.00</output></label>
             </div>
             <div class="route-total"><span>Simulated allocation</span><strong id="route-total">$0.00</strong></div>
             <p class="disclaimer">The split is illustrative and does not change checkout: PayPal Sandbox receives the full order total. No ZK proof, CBDC, token, offline transfer, or other asset is created or sent.</p>
@@ -83,7 +87,7 @@
               <p class="disclaimer">Illustrative status only. This demo does not perform risk scoring, passkey verification, or replay protection.</p>
             </article>
             <article class="panel pet-panel">
-              <div class="pet-avatar" aria-hidden="true">🤖</div>
+              <div class="pet-avatar" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><path d="M24 5v5"/><circle class="pet-antenna" cx="24" cy="4" r="2"/><rect x="6" y="11" width="36" height="29" rx="10"/><path d="M12 42h24"/><circle class="pet-eye" cx="18" cy="24" r="2.5"/><circle class="pet-eye" cx="30" cy="24" r="2.5"/><path d="M18 32c3.5 3 8.5 3 12 0"/></svg></div>
               <div class="pet-copy"><span class="simulation-tag">OPTIONAL COMPANION</span><h2>Byte is here to help</h2><p id="pet-status">Your friendly desk buddy is feeling curious.</p><div class="pet-actions"><button type="button" class="pet-button" data-pet-action="feed">Give a snack</button><button type="button" class="pet-button" data-pet-action="play">Play</button></div></div>
             </article>
           </div>
