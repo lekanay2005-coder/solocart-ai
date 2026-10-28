@@ -247,7 +247,10 @@ function showPaymentReturn() {
   const payment = params.get('payment');
   if (!payment) return;
   if (payment === 'cancelled') showNotice('Checkout was cancelled. Your draft is still yours to edit.', 'success');
-  else if (payment === 'COMPLETED') showNotice('Sandbox payment completed. The order was approved in PayPal Sandbox.', 'success');
+  else if (payment === 'COMPLETED') {
+    showNotice('Sandbox payment completed. The order was approved in PayPal Sandbox.', 'success');
+    addLocalEvent('PayPal Sandbox order completed', 'Buyer approval and capture succeeded');
+  }
   else if (payment === 'error') showNotice('PayPal returned to the app, but sandbox capture did not complete. Check the PayPal test account and try again.', 'error');
   else if (payment === 'unavailable') showNotice('PayPal Sandbox return is unavailable until sandbox credentials are configured.', 'error');
   if (window.history.replaceState) window.history.replaceState({}, '', '/');
@@ -321,3 +324,138 @@ renderRouteAmounts(0);
 function money(value) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
 }
+
+// Multi-page seller desk: the original order builder remains the checkout core.
+const pageViews = [...document.querySelectorAll('[data-view]')];
+const workspaceSections = [...document.querySelectorAll('main > .intro, main > .workspace, main > .demo-grid, main > .how-it-works')];
+const footer = document.querySelector('.footer');
+let signedInUser = null;
+let amountsHidden = localStorage.getItem('solocart-hide-amounts') === 'true';
+const savedTheme = localStorage.getItem('solocart-theme') || 'light';
+document.documentElement.dataset.theme = savedTheme;
+
+function setPage(name) {
+  const page = name === 'workspace' || pageViews.some((view) => view.dataset.view === name) ? name : 'overview';
+  pageViews.forEach((view) => { view.hidden = view.dataset.view !== page; });
+  workspaceSections.forEach((section) => {
+    section.hidden = section.id === 'routes' ? page !== 'routes' : page !== 'workspace';
+  });
+  footer.hidden = ['signin', 'signup'].includes(page);
+  if (page === 'routes') {
+    const target = document.querySelector('#routes-page-content');
+    const source = document.querySelector('#routes');
+    if (target && source && source.parentElement !== target) target.append(source);
+  }
+  document.querySelectorAll('[data-page]').forEach((link) => link.classList.toggle('active', link.dataset.page === page));
+  document.querySelector('#app-pages').hidden = false;
+  if (page === 'overview' || page === 'orders' || page === 'activity') renderLocalOrderPages();
+  if (page === 'settings') refreshSettings();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function navigate() { setPage(location.hash.slice(1) || 'overview'); }
+window.addEventListener('hashchange', navigate);
+document.querySelectorAll('a[href^="#"]').forEach((link) => link.addEventListener('click', () => {
+  const page = link.getAttribute('href').slice(1);
+  if (pageViews.some((view) => view.dataset.view === page)) setPage(page);
+}));
+
+function readLocalOrders() {
+  try { return JSON.parse(localStorage.getItem('solocart-orders') || '[]'); } catch { return []; }
+}
+function addLocalEvent(title, detail, amount = null) {
+  const events = readLocalOrders();
+  events.unshift({ id: crypto.randomUUID(), title, detail, amount, time: new Date().toISOString() });
+  localStorage.setItem('solocart-orders', JSON.stringify(events.slice(0, 40)));
+}
+function renderLocalOrderPages() {
+  const orders = readLocalOrders();
+  const amount = orders.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const balance = document.querySelector('#wallet-balance');
+  balance.textContent = amountsHidden ? '••••••' : money(amount);
+  document.querySelector('#draft-count').textContent = currentOrder ? '01' : '00';
+  document.querySelector('#paid-count').textContent = String(orders.length).padStart(2, '0');
+  const html = orders.length ? orders.map((item) => `<article class="activity-row"><span class="activity-mark">✓</span><div><strong>${escapeText(item.title)}</strong><small>${escapeText(item.detail)} · ${new Date(item.time).toLocaleString()}</small></div><b>${item.amount == null ? 'Saved' : (amountsHidden ? '••••' : money(item.amount))}</b></article>`).join('') : '<div class="empty-state"><span>✦</span><strong>Your desk is ready</strong><p>Completed checkout activity will show up here. Your sample draft is ready in New order.</p><a href="#workspace">Open order builder</a></div>';
+  document.querySelector('#activity-list').innerHTML = html;
+  document.querySelector('#overview-activity').innerHTML = orders.length ? orders.slice(0, 3).map((item) => `<article class="activity-row"><span class="activity-mark">✓</span><div><strong>${escapeText(item.title)}</strong><small>${escapeText(item.detail)}</small></div><b>${item.amount == null ? 'Saved' : (amountsHidden ? '••••' : money(item.amount))}</b></article>`).join('') : html;
+  document.querySelector('#orders-list').innerHTML = currentOrder ? `<article class="panel order-tile"><span class="status-pill">DRAFT · REVIEW</span><h2>Customer order</h2><p>${currentOrder.items.map((item) => `${escapeText(item.quantity)} × ${escapeText(item.name)}`).join(', ')}</p><strong>${amountsHidden ? '••••' : money(currentOrder.total)}</strong><a class="button button-primary" href="#workspace">Review order</a></article>` : '<div class="panel empty-state"><span>✦</span><strong>No drafts yet</strong><p>Start with a customer message and check each detail before checkout.</p><a href="#workspace">Create your first order</a></div>';
+}
+function escapeText(value) { const node = document.createElement('span'); node.textContent = String(value); return node.innerHTML; }
+
+function refreshSettings() {
+  document.querySelector('#settings-account-label').textContent = signedInUser ? `Signed in as ${signedInUser.email}` : 'No account signed in';
+  document.querySelector('#theme-toggle').textContent = document.documentElement.dataset.theme === 'dark' ? 'Use light mode' : 'Use night mode';
+  document.querySelector('#settings-balance-toggle').textContent = amountsHidden ? 'Show amounts' : 'Hide amounts';
+}
+function setAmountsHidden(hidden) {
+  amountsHidden = hidden;
+  localStorage.setItem('solocart-hide-amounts', String(hidden));
+  document.querySelector('#balance-toggle').textContent = hidden ? 'Show balance' : 'Hide balance';
+  document.querySelector('#settings-balance-toggle').textContent = hidden ? 'Show amounts' : 'Hide amounts';
+  renderLocalOrderPages();
+}
+document.querySelector('#balance-toggle').addEventListener('click', () => setAmountsHidden(!amountsHidden));
+document.querySelector('#settings-balance-toggle').addEventListener('click', () => setAmountsHidden(!amountsHidden));
+document.querySelector('#theme-toggle').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('solocart-theme', next);
+  refreshSettings();
+});
+
+async function refreshAuth() {
+  try {
+    const response = await fetch('/api/auth/me');
+    const result = await response.json();
+    signedInUser = result.user;
+  } catch { signedInUser = null; }
+  const signedIn = Boolean(signedInUser);
+  document.querySelector('#signed-out-actions').hidden = signedIn;
+  document.querySelector('#signed-in-actions').hidden = !signedIn;
+  document.querySelector('#account-summary').textContent = signedIn ? `Signed in as ${signedInUser.email}` : 'Sign in or create a local SoloCart account.';
+  if (signedIn) {
+    document.querySelector('#profile-name').textContent = signedInUser.name;
+    document.querySelector('#profile-email').textContent = signedInUser.email;
+    document.querySelector('#profile-badge').textContent = signedInUser.name.slice(0, 1).toUpperCase();
+    document.querySelector('.avatar').textContent = signedInUser.name.slice(0, 1).toUpperCase();
+    document.querySelector('#welcome-name').textContent = `Welcome back, ${signedInUser.name.split(' ')[0]}`;
+  }
+  refreshSettings();
+}
+
+async function submitAuth(form, endpoint) {
+  const message = form.querySelector('.auth-message');
+  const button = form.querySelector('button[type="submit"]');
+  message.textContent = '';
+  button.disabled = true;
+  try {
+    const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not complete sign-in.');
+    signedInUser = result.user;
+    await refreshAuth();
+    location.hash = '#account';
+  } catch (error) { message.textContent = error.message; }
+  finally { button.disabled = false; }
+}
+document.querySelector('#signin-form').addEventListener('submit', (event) => { event.preventDefault(); submitAuth(event.currentTarget, '/api/auth/login'); });
+document.querySelector('#signup-form').addEventListener('submit', (event) => { event.preventDefault(); submitAuth(event.currentTarget, '/api/auth/register'); });
+document.querySelector('#signout-button').addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  signedInUser = null;
+  await refreshAuth();
+  location.hash = '#signin';
+});
+
+// Put each finished checkout into the local activity log; this is not an account balance.
+document.querySelector('#create-checkout').addEventListener('click', () => {
+  if (appConfig.paypalMode !== 'sandbox' && currentOrder) addLocalEvent('Checkout preview opened', 'Preview only · no payment was made', currentOrder.total);
+});
+for (const button of document.querySelectorAll('[data-pet-action]')) button.addEventListener('click', () => {
+  document.querySelector('#byte-page-status').textContent = document.querySelector('#pet-status').textContent;
+});
+
+setAmountsHidden(amountsHidden);
+refreshAuth();
+renderLocalOrderPages();
+navigate();

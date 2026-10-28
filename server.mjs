@@ -3,7 +3,9 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes, createHash, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
+import { mkdir, readFile as readStoredFile, writeFile } from 'node:fs/promises';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const publicRoot = join(root, 'public');
@@ -17,6 +19,11 @@ const hasPaypal = Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLI
 const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
 const pendingPaypalOrders = new Map();
 const pendingPaypalOrderTtlMs = 3 * 60 * 60 * 1000;
+const scrypt = promisify(scryptCallback);
+const authDir = join(root, 'data');
+const usersFile = join(authDir, 'users.json');
+const sessions = new Map();
+const authAttempts = new Map();
 
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -39,6 +46,20 @@ const server = createServer(async (request, response) => {
         paypalMode: hasPaypal ? 'sandbox' : 'preview',
         model: hasOpenAI ? (process.env.OPENAI_MODEL || 'gpt-6-luna') : null,
       });
+    }
+    if (url.pathname.startsWith('/api/auth/')) {
+      if (request.method === 'GET' && url.pathname === '/api/auth/me') {
+        const user = await getSessionUser(request);
+        return sendJson(response, 200, { user: user ? publicUser(user) : null });
+      }
+      if (request.method === 'POST' && url.pathname === '/api/auth/register') return registerUser(request, response);
+      if (request.method === 'POST' && url.pathname === '/api/auth/login') return loginUser(request, response);
+      if (request.method === 'POST' && url.pathname === '/api/auth/logout') {
+        const token = getCookie(request, 'sc_session');
+        if (token) sessions.delete(hashToken(token));
+        response.setHeader('Set-Cookie', sessionCookie('', true));
+        return sendJson(response, 200, { ok: true });
+      }
     }
     if (request.method === 'POST' && url.pathname === '/api/parse-order') {
       try {
@@ -139,6 +160,101 @@ function sameOrigin(request) {
   } catch {
     return false;
   }
+}
+
+async function registerUser(request, response) {
+  if (!consumeAuthAttempt(request)) return sendJson(response, 429, { error: 'Too many account attempts. Try again in a few minutes.' });
+  try {
+    const body = await readJson(request);
+    const name = String(body.name || '').trim().replace(/[<>]/g, '').slice(0, 60);
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    if (name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return sendJson(response, 400, { error: 'Enter a valid name and email address.' });
+    if (password.length < 12 || password.length > 256) return sendJson(response, 400, { error: 'Use a password between 12 and 256 characters.' });
+    const users = await loadUsers();
+    if (users.some((user) => user.email === email)) return sendJson(response, 409, { error: 'An account with that email already exists. Try signing in.' });
+    const salt = randomBytes(16).toString('hex');
+    const passwordHash = (await scrypt(password, salt, 64)).toString('hex');
+    const user = { id: randomUUID(), name, email, salt, passwordHash, createdAt: new Date().toISOString() };
+    users.push(user);
+    await saveUsers(users);
+    issueSession(response, user);
+    return sendJson(response, 201, { user: publicUser(user) });
+  } catch (error) {
+    return sendJson(response, error.status || 500, { error: error.status ? error.message : 'Could not create your account.' });
+  }
+}
+
+async function loginUser(request, response) {
+  if (!consumeAuthAttempt(request)) return sendJson(response, 429, { error: 'Too many account attempts. Try again in a few minutes.' });
+  try {
+    const body = await readJson(request);
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    const users = await loadUsers();
+    const user = users.find((entry) => entry.email === email);
+    // Run a derivation on unknown accounts too, avoiding a cheap account-enumeration timing signal.
+    const salt = user?.salt || '00000000000000000000000000000000';
+    const expected = user?.passwordHash || '0'.repeat(128);
+    const supplied = (await scrypt(password.slice(0, 256), salt, 64)).toString('hex');
+    const valid = timingSafeEqual(Buffer.from(supplied, 'hex'), Buffer.from(expected, 'hex'));
+    if (!user || !valid) return sendJson(response, 401, { error: 'Email or password is incorrect.' });
+    issueSession(response, user);
+    return sendJson(response, 200, { user: publicUser(user) });
+  } catch (error) {
+    return sendJson(response, error.status || 500, { error: error.status ? error.message : 'Could not sign in.' });
+  }
+}
+
+function issueSession(response, user) {
+  const token = randomBytes(32).toString('base64url');
+  sessions.set(hashToken(token), { userId: user.id, expiresAt: Date.now() + 8 * 60 * 60 * 1000 });
+  response.setHeader('Set-Cookie', sessionCookie(token));
+}
+
+async function getSessionUser(request) {
+  const token = getCookie(request, 'sc_session');
+  if (!token) return null;
+  const key = hashToken(token);
+  const session = sessions.get(key);
+  if (!session || session.expiresAt < Date.now()) { sessions.delete(key); return null; }
+  const users = await loadUsers();
+  return users.find((user) => user.id === session.userId) || null;
+}
+
+function sessionCookie(token, clear = false) {
+  const secure = appBaseUrl.startsWith('https://') ? '; Secure' : '';
+  return `sc_session=${clear ? '' : token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${clear ? 0 : 28800}${secure}`;
+}
+
+function getCookie(request, name) {
+  const found = String(request.headers.cookie || '').split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+  return found ? found.slice(name.length + 1) : '';
+}
+
+function hashToken(token) { return createHash('sha256').update(token).digest('hex'); }
+function publicUser(user) { return { id: user.id, name: user.name, email: user.email }; }
+
+function consumeAuthAttempt(request) {
+  const key = request.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const state = authAttempts.get(key) || { count: 0, since: now };
+  if (now - state.since > 10 * 60 * 1000) { state.count = 0; state.since = now; }
+  state.count += 1;
+  authAttempts.set(key, state);
+  return state.count <= 10;
+}
+
+async function loadUsers() {
+  try {
+    const data = JSON.parse(await readStoredFile(usersFile, 'utf8'));
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+async function saveUsers(users) {
+  await mkdir(authDir, { recursive: true, mode: 0o700 });
+  await writeFile(usersFile, JSON.stringify(users, null, 2), { mode: 0o600 });
 }
 
 async function readJson(request) {

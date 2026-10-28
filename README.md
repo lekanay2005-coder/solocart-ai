@@ -11,9 +11,14 @@
 - Sends the buyer to PayPal to approve the order, then captures the Sandbox order after PayPal returns to the app.
 - Lets the user explore a hypothetical payment split across PayPal USD, privacy credit, conditional token, and offline reserve. Only PayPal Sandbox is connected; the other routes are interface simulations and transfer no value.
 - Shows a demo-only security activity panel and a small optional pet companion with interactive snack/play buttons.
+- Includes eleven seller-desk screens: overview, orders, activity, order builder, payment routes, security center, Byte’s corner, settings, account, sign-in, and sign-up.
+- Adds a persistent light/night theme, a private-amount toggle, and an activity timeline saved in the current browser.
+- Provides local SoloCart accounts with salted scrypt password hashes, HttpOnly/SameSite sessions, an eight-hour expiry, same-origin request checks, and basic sign-in throttling.
 - Never exposes the OpenAI or PayPal secret in browser code. The PayPal API host defaults to the Sandbox host.
 
-The local parser is only a preview fallback; the OpenAI connection is the AI path. The current interface handles USD orders and does not store orders or buyer information in a database.
+The local parser is only a preview fallback; the OpenAI connection is the AI path. The current interface handles USD orders. Order activity is kept in browser storage, while local account hashes are written to the ignored `data/users.json` file on the server. Sessions are in memory and end on restart.
+
+Account security is suitable for the local hackathon prototype only. It does not include verified email, account recovery, passkeys/MFA, durable session storage, or a managed database. Do not reuse an important password here or expose this development server publicly.
 
 ## Design
 
@@ -70,4 +75,4 @@ Expected review: 2 × $18.00 items, $5.00 delivery, $41.00 total.
 
 See [DEMO-WALKTHROUGH.md](./DEMO-WALKTHROUGH.md) for the under-three-minute recording outline and final demo checklist.
 
-This is a hackathon prototype. It is not a production payment system: it has no account authentication, persistent order storage, webhook verification, inventory checks, or live-payment support.
+This is a hackathon prototype. It is not a production payment system: its account flow is local-only, order storage is browser-local, and it has no verified email, account recovery, multi-factor authentication, durable sessions, webhook verification, inventory checks, or live-payment support.

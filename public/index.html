@@ -13,17 +13,52 @@
     <div class="app-shell">
       <header class="topbar">
         <a class="wordmark" href="/" aria-label="SoloCart home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>SoloCart</span></a>
-        <nav class="topnav" aria-label="Main navigation">
-          <a href="#workspace">Order workspace</a>
-          <a href="#routes">Payment model</a>
+        <nav class="topnav" aria-label="Main navigation" id="main-navigation">
+          <a href="#overview" data-page="overview">Home</a>
+          <a href="#orders" data-page="orders">Orders</a>
+          <a href="#activity" data-page="activity">Activity</a>
+          <a href="#workspace" data-page="workspace">New order</a>
+          <a href="#routes" data-page="routes">Routes</a>
+          <a href="#security" data-page="security">Security</a>
+          <a href="#companion" data-page="companion">Byte</a>
+          <a href="#settings" data-page="settings">Settings</a>
         </nav>
         <div class="topbar-right">
           <span class="mode-indicator"><span class="mode-dot"></span><span id="connection-label">Preview mode</span></span>
-          <button class="avatar" type="button" aria-label="Local demo profile">D</button>
+          <button class="avatar" type="button" aria-label="Account" data-page="account">S</button>
         </div>
       </header>
 
       <main>
+        <div id="app-pages">
+        <section class="app-page" data-view="overview" aria-label="Seller overview">
+          <section class="intro"><div><p class="eyebrow">YOUR SELLER DESK</p><h1>Good business,<br><em>made simpler.</em></h1><p class="intro-copy">A calm home for customer requests, orders, and PayPal checkout.</p></div><div class="trust-note"><span class="trust-symbol">TODAY</span><p><strong id="welcome-name">Welcome back</strong><br>Your workspace is ready when you are.</p></div></section>
+          <div class="overview-grid"><article class="panel wallet-card"><div class="wallet-top"><span>SOLOCART WALLET VIEW</span><button id="balance-toggle" class="text-button" type="button">Hide balance</button></div><p class="wallet-label">Demo activity total · not a wallet balance</p><strong id="wallet-balance" class="wallet-balance">$0.00</strong><div class="wallet-foot"><span>PayPal Sandbox</span><span class="status-pill">No live funds</span></div></article>
+            <div class="stat-stack"><article class="panel stat-card"><span>Draft orders</span><strong id="draft-count">01</strong><small>Ready for review</small></article><article class="panel stat-card"><span>Activity events</span><strong id="paid-count">00</strong><small>Saved in this browser</small></article></div>
+          </div>
+          <section class="quick-actions"><a class="quick-action" href="#workspace"><span>＋</span><strong>Create order</strong><small>From a customer message</small></a><a class="quick-action" href="#activity"><span>↗</span><strong>View activity</strong><small>Recent checkout events</small></a><a class="quick-action" href="#routes"><span>◈</span><strong>Payment routes</strong><small>See the checkout model</small></a></section>
+          <section class="panel recent-panel"><div class="page-heading"><div><p class="eyebrow">LATEST</p><h2>Recent activity</h2></div><a href="#activity">See all</a></div><div id="overview-activity" class="activity-list"></div></section>
+        </section>
+
+        <section class="app-page" data-view="orders" hidden><div class="page-title-row"><div><p class="eyebrow">SELLER DESK</p><h1>Your orders</h1><p class="intro-copy">Drafts and checkout outcomes stay on this device.</p></div><a class="button button-primary" href="#workspace">Create an order</a></div><div id="orders-list" class="orders-grid"></div></section>
+
+        <section class="app-page" data-view="activity" hidden><div class="page-title-row"><div><p class="eyebrow">TIMELINE</p><h1>Activity</h1><p class="intro-copy">A private view of activity saved in this browser.</p></div></div><section id="activity-list" class="panel activity-list"></section></section>
+
+        <section class="app-page" data-view="routes" hidden><div class="page-title-row"><div><p class="eyebrow">CHECKOUT MODEL</p><h1>Payment routes</h1><p class="intro-copy">Explore the checkout concepts in SoloCart.</p></div></div><section class="demo-grid" id="routes-page-content"></section></section>
+
+        <section class="app-page" data-view="security" hidden><div class="page-title-row"><div><p class="eyebrow">ACCOUNT PROTECTION</p><h1>Security center</h1><p class="intro-copy">Understand how this local prototype protects your account.</p></div></div><div class="security-grid"><article class="panel"><span class="security-icon">✓</span><h2>Password protection</h2><p>Passwords are hashed with scrypt and a unique random salt before they are stored.</p></article><article class="panel"><span class="security-icon">◉</span><h2>Private session</h2><p>Sign-in uses an HttpOnly, SameSite cookie. The session expires automatically and is cleared when you log out.</p></article><article class="panel"><span class="security-icon">⌁</span><h2>Request safeguards</h2><p>Same-origin checks, basic login throttling, and security headers protect account requests.</p></article><article class="panel"><span class="security-icon">!</span><h2>Prototype scope</h2><p>Accounts are stored locally on this server. No email verification, recovery, passkeys, or multi-server session store is configured.</p></article></div></section>
+
+        <section class="app-page" data-view="companion" hidden><div class="page-title-row"><div><p class="eyebrow">YOUR SHOP BUDDY</p><h1>Byte’s corner</h1><p class="intro-copy">A small companion to keep order prep feeling human.</p></div></div><section class="panel byte-page"><div class="pet-avatar large" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 5v5"/><circle class="pet-antenna" cx="24" cy="4" r="2"/><rect x="6" y="11" width="36" height="29" rx="10"/><path d="M12 42h24"/><circle class="pet-eye" cx="18" cy="24" r="2.5"/><circle class="pet-eye" cx="30" cy="24" r="2.5"/><path d="M18 32c3.5 3 8.5 3 12 0"/></svg></div><div><span class="simulation-tag">SOLOCART COMPANION</span><h2>Hi, I’m Byte.</h2><p id="byte-page-status">I can keep you company while you prepare an order. I’ll never submit or charge anything for you.</p><div class="pet-actions"><button class="pet-button" type="button" data-pet-action="feed">Give a snack</button><button class="pet-button" type="button" data-pet-action="play">Play</button><a class="button button-primary" href="#workspace">Prepare an order</a></div></div></section></section>
+
+        <section class="app-page" data-view="settings" hidden><div class="page-title-row"><div><p class="eyebrow">PREFERENCES</p><h1>Settings</h1><p class="intro-copy">Make SoloCart comfortable for your workday.</p></div></div><section class="panel settings-list"><div class="setting-row"><div><strong>Appearance</strong><p>Switch between light and night mode.</p></div><button class="button button-secondary" id="theme-toggle" type="button">Use night mode</button></div><div class="setting-row"><div><strong>Private amounts</strong><p>Hide balances and totals on shared screens.</p></div><button class="button button-secondary" id="settings-balance-toggle" type="button">Hide amounts</button></div><div class="setting-row"><div><strong>Account</strong><p id="settings-account-label">No account signed in</p></div><a class="button button-secondary" href="#account">Manage account</a></div></section></section>
+
+        <section class="app-page" data-view="account" hidden><div class="page-title-row"><div><p class="eyebrow">YOUR PROFILE</p><h1>Account</h1><p class="intro-copy" id="account-summary">Sign in or create a local SoloCart account.</p></div></div><section class="panel auth-panel"><div id="signed-out-actions"><a class="button button-primary" href="#signin">Sign in</a><a class="button button-secondary" href="#signup">Create account</a></div><div id="signed-in-actions" hidden><div class="profile-badge" id="profile-badge">S</div><div><strong id="profile-name">Seller</strong><p id="profile-email"></p></div><button id="signout-button" class="button button-secondary" type="button">Log out</button></div><p class="disclaimer">This prototype keeps account records on the SoloCart server. Use a unique password; account recovery and email verification are not set up.</p></section></section>
+
+        <section class="app-page" data-view="signin" hidden><section class="auth-page"><div class="auth-aside"><p class="eyebrow">WELCOME BACK</p><h1>Your shop,<br><em>in good hands.</em></h1><p>Sign in to keep your SoloCart seller desk together.</p></div><form class="panel auth-form" id="signin-form"><p class="eyebrow">SOLOCART ACCOUNT</p><h2>Sign in</h2><label>Email<input name="email" type="email" autocomplete="email" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="current-password" required minlength="12"></label><button class="button button-primary" type="submit">Sign in securely</button><p class="auth-message" role="status"></p><p class="auth-switch">New here? <a href="#signup">Create an account</a></p></form></section></section>
+
+        <section class="app-page" data-view="signup" hidden><section class="auth-page"><div class="auth-aside"><p class="eyebrow">A FRESH START</p><h1>Build your<br><em>seller space.</em></h1><p>Your new account lives on this SoloCart server. Start with a strong, unique password.</p></div><form class="panel auth-form" id="signup-form"><p class="eyebrow">CREATE ACCOUNT</p><h2>Join SoloCart</h2><label>Your name<input name="name" type="text" autocomplete="name" required minlength="2" maxlength="60"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="new-password" required minlength="12" aria-describedby="password-hint"></label><small id="password-hint">Use at least 12 characters. A unique passphrase is easiest to remember.</small><button class="button button-primary" type="submit">Create account</button><p class="auth-message" role="status"></p><p class="auth-switch">Already have an account? <a href="#signin">Sign in</a></p></form></section></section>
+
+        </div>
         <section class="intro" aria-labelledby="page-title">
           <div>
           <h1 id="page-title">From customer message<br><em>to confident checkout.</em></h1>
