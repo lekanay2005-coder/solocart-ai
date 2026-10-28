@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "icon-tile-stack",
+        "value": "*",
+        "files": [
+          "public/index.html"
+        ],
+        "createdAt": "2026-10-28T15:37:28.084Z",
+        "reason": "Agent: security card icons are flex-aligned beside headings; browser screenshot confirms the detector mistook row layout for stacked tiles"
+      }
+    ]
+  }
+}
