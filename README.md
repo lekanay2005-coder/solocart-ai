@@ -17,7 +17,7 @@ The local parser is only a preview fallback; the OpenAI connection is the AI pat
 
 ## Design
 
-The web UI follows a Stitch-generated direction for a calm seller checkout workspace. Figma handoff is not included because Figma is not connected in this environment. The interface uses responsive HTML and CSS directly from the repository.
+The web UI follows a Stitch-generated direction for a calm seller checkout workspace. [Open the SoloCart Stitch project](https://stitch.withgoogle.com/projects/2773758884601685044). Figma handoff is not included because Figma is not connected in this environment. The interface uses responsive HTML and CSS directly from the repository.
 
 ## Requirements
 
