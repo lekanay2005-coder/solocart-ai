@@ -29,14 +29,17 @@ const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
   '.ico': 'image/x-icon',
+  '.jpg': 'image/jpeg',
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.mp4': 'video/mp4',
+  '.png': 'image/png',
   '.svg': 'image/svg+xml',
 };
 
 const server = createServer(async (request, response) => {
-  setSecurityHeaders(response);
   const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+  setSecurityHeaders(response, url.pathname);
 
   if (url.pathname.startsWith('/api/')) {
     if (!sameOrigin(request)) return sendJson(response, 403, { error: 'Requests must come from this app.' });
@@ -145,11 +148,14 @@ function loadEnv(path) {
   }).catch(() => {});
 }
 
-function setSecurityHeaders(response) {
+function setSecurityHeaders(response, pathname) {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.setHeader('X-Frame-Options', 'DENY');
-  response.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'self'; form-action 'self' https://www.sandbox.paypal.com");
+  const designPage = ['/designs.html', '/capabilities.html', '/vantix.html', '/vertex3d.html'].includes(pathname);
+  const inline = designPage ? " 'unsafe-inline'" : '';
+  const media = designPage ? ' https://d2ol7oe51mr4n9.cloudfront.net' : '';
+  response.setHeader('Content-Security-Policy', `default-src 'self'; connect-src 'self'; img-src 'self' data:${media}; media-src 'self'${media}; font-src 'self' https://fonts.gstatic.com; style-src 'self'${inline} https://fonts.googleapis.com; script-src 'self'${inline}; base-uri 'self'; form-action 'self' https://www.sandbox.paypal.com`);
 }
 
 function sameOrigin(request) {

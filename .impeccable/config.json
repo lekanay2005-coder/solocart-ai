@@ -11,6 +11,69 @@
         ],
         "createdAt": "2026-10-28T15:37:28.084Z",
         "reason": "Agent: security card icons are flex-aligned beside headings; browser screenshot confirms the detector mistook row layout for stacked tiles"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "files": [
+          "public/capabilities.html"
+        ],
+        "createdAt": "2026-10-28T15:57:02.844Z",
+        "reason": "User specified Geist as the display font in the supplied capabilities brief"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "public/capabilities.html"
+        ],
+        "createdAt": "2026-10-28T15:57:16.344Z",
+        "reason": "User specified amber gradient fill for the Clarity word in the supplied design brief"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "public/capabilities.html"
+        ],
+        "createdAt": "2026-10-28T15:57:16.368Z",
+        "reason": "User specified glowing amber holographic wireframe icons in the supplied capabilities brief"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "public/vantix.html"
+        ],
+        "createdAt": "2026-10-28T15:57:37.020Z",
+        "reason": "User specified the cyan gradient Vantix wordmark in the supplied footer brief"
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "public/vantix.html"
+        ],
+        "createdAt": "2026-10-28T15:57:37.046Z",
+        "reason": "User specified Inter Display for the Vantix footer design"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "public/vertex3d.html"
+        ],
+        "createdAt": "2026-10-28T15:57:37.068Z",
+        "reason": "User specified pink-lilac gradient display text in the supplied Vertex3D login brief"
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "public/vertex3d.html"
+        ],
+        "createdAt": "2026-10-28T15:57:37.097Z",
+        "reason": "User specified Inter for the Vertex3D login design"
       }
     ]
   }
