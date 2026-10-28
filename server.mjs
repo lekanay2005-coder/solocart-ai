@@ -307,7 +307,9 @@ async function paypalAccessToken() {
     body: 'grant_type=client_credentials',
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.access_token) throw new Error('PayPal Sandbox authentication failed. Check the credentials in .env.');
+  if (!response.ok || !payload.access_token) {
+    throw paypalApiError('Sandbox authentication', response, payload);
+  }
   return payload.access_token;
 }
 
@@ -345,7 +347,7 @@ async function createPaypalOrder(order) {
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message || 'PayPal Sandbox could not create the order.');
+  if (!response.ok) throw paypalApiError('Sandbox order creation', response, payload);
   if (!payload.id) throw new Error('PayPal Sandbox did not return an order ID.');
   const approvalUrl = payload.links?.find((link) => link.rel === 'approve')?.href
     || payload.links?.find((link) => link.rel === 'payer-action')?.href;
@@ -392,6 +394,18 @@ async function capturePaypalOrder(orderId, requestId) {
     body: '{}',
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message || 'PayPal could not complete the sandbox order.');
+  if (!response.ok) throw paypalApiError('Sandbox order capture', response, payload);
   return payload;
+}
+
+function paypalApiError(operation, response, payload) {
+  const issue = String(payload.details?.[0]?.issue || payload.error || '')
+    .replace(/[^A-Z0-9_-]/gi, '')
+    .slice(0, 48);
+  const debugId = String(payload.debug_id || '')
+    .replace(/[^A-Z0-9_-]/gi, '')
+    .slice(0, 64);
+  console.error(`[PayPal] ${operation} failed: HTTP ${response.status}; issue=${issue || 'unknown'}; debug_id=${debugId || 'unavailable'}`);
+  const details = [issue && `issue ${issue}`, debugId && `debug ID ${debugId}`].filter(Boolean).join('; ');
+  return Object.assign(new Error(`${operation} failed${details ? ` (${details})` : ''}.`), { status: 502 });
 }
