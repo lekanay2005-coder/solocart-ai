@@ -44,10 +44,13 @@ Set `OPENAI_API_KEY` in `.env`. You can also change `OPENAI_MODEL` to a model en
 
 1. Sign in to the [PayPal Developer Dashboard](https://developer.paypal.com/dashboard/) and create a Sandbox REST app.
 2. Copy its Sandbox client ID and secret into `.env` as `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
-3. Keep `PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com`.
-4. Restart the app and create a Sandbox checkout. Approve it with a Sandbox personal test account.
+3. Restart the app and create a Sandbox checkout. Approve it with a Sandbox personal test account.
 
-PayPal client credentials stay server-side. **Do not put live credentials in this prototype.** The app never calls PayPal's live API host.
+PayPal client credentials stay server-side. **Do not put live credentials in this prototype.** The app is hard-wired to PayPal's Sandbox API host and does not support live payments.
+
+The Developer Dashboard uses your regular PayPal login. Use the generated **Personal** Sandbox account to approve the buyer flow; the **Business** Sandbox account represents the seller. See PayPal's [Sandbox getting-started guide](https://github.com/paypaldev/getting-started-with-paypal-sandbox) for account setup and the test-payment workflow.
+
+For a local demo, pending order IDs are kept in server memory for up to three hours. The return route only captures orders created by the running server, and capture retries reuse the same PayPal request ID. Restarting the server clears those pending IDs; a production app needs durable order state and verified PayPal webhooks.
 
 ## Example request
 

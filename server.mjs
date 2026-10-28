@@ -11,9 +11,12 @@ await loadEnv(join(root, '.env'));
 
 const port = Number(process.env.PORT || 4173);
 const appBaseUrl = (process.env.APP_BASE_URL || `http://localhost:${port}`).replace(/\/$/, '');
-const paypalBaseUrl = (process.env.PAYPAL_BASE_URL || 'https://api-m.sandbox.paypal.com').replace(/\/$/, '');
+// This prototype is intentionally Sandbox-only; the API host cannot be changed through .env.
+const paypalBaseUrl = 'https://api-m.sandbox.paypal.com';
 const hasPaypal = Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
 const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
+const pendingPaypalOrders = new Map();
+const pendingPaypalOrderTtlMs = 3 * 60 * 60 * 1000;
 
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -72,12 +75,15 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'GET' && url.pathname === '/paypal/return') {
     const orderId = url.searchParams.get('token') || '';
-    if (!hasPaypal || !/^[A-Z0-9-]{5,80}$/i.test(orderId)) {
+    prunePendingPaypalOrders();
+    const pendingOrder = pendingPaypalOrders.get(orderId);
+    if (!hasPaypal || !/^[A-Z0-9-]{5,80}$/i.test(orderId) || !pendingOrder) {
       return redirect(response, '/?payment=unavailable');
     }
     try {
-      const result = await capturePaypalOrder(orderId);
-      return redirect(response, `/?payment=${encodeURIComponent(result.status || 'returned')}&order=${encodeURIComponent(orderId)}`);
+      const result = await capturePendingPaypalOrder(orderId, pendingOrder);
+      if (result.status !== 'COMPLETED') return redirect(response, '/?payment=error');
+      return redirect(response, `/?payment=COMPLETED&order=${encodeURIComponent(orderId)}`);
     } catch {
       return redirect(response, `/?payment=error&order=${encodeURIComponent(orderId)}`);
     }
@@ -340,20 +346,52 @@ async function createPaypalOrder(order) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message || 'PayPal Sandbox could not create the order.');
+  if (!payload.id) throw new Error('PayPal Sandbox did not return an order ID.');
   const approvalUrl = payload.links?.find((link) => link.rel === 'approve')?.href
     || payload.links?.find((link) => link.rel === 'payer-action')?.href;
   if (!approvalUrl) throw new Error('PayPal did not return an approval link.');
+  prunePendingPaypalOrders();
+  pendingPaypalOrders.set(payload.id, {
+    captureRequestId: randomUUID(),
+    expiresAt: Date.now() + pendingPaypalOrderTtlMs,
+    capturePromise: null,
+    captureResult: null,
+  });
   return { orderId: payload.id, approvalUrl, status: payload.status };
 }
 
-async function capturePaypalOrder(orderId) {
+function prunePendingPaypalOrders(now = Date.now()) {
+  for (const [orderId, order] of pendingPaypalOrders) {
+    if (order.expiresAt <= now) pendingPaypalOrders.delete(orderId);
+  }
+}
+
+function capturePendingPaypalOrder(orderId, pendingOrder) {
+  if (pendingOrder.captureResult?.status === 'COMPLETED') {
+    return Promise.resolve(pendingOrder.captureResult);
+  }
+  if (pendingOrder.capturePromise) return pendingOrder.capturePromise;
+  pendingOrder.capturePromise = capturePaypalOrder(orderId, pendingOrder.captureRequestId)
+    .then((result) => {
+      pendingOrder.captureResult = result;
+      pendingOrder.capturePromise = null;
+      return result;
+    })
+    .catch((error) => {
+      pendingOrder.capturePromise = null;
+      throw error;
+    });
+  return pendingOrder.capturePromise;
+}
+
+async function capturePaypalOrder(orderId, requestId) {
   const accessToken = await paypalAccessToken();
   const response = await fetch(`${paypalBaseUrl}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'PayPal-Request-Id': randomUUID() },
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'PayPal-Request-Id': requestId },
     body: '{}',
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok && payload.name !== 'UNPROCESSABLE_ENTITY') throw new Error(payload.message || 'PayPal could not complete the sandbox order.');
+  if (!response.ok) throw new Error(payload.message || 'PayPal could not complete the sandbox order.');
   return payload;
 }
