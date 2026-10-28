@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f1f4ef">
+    <meta name="description" content="An AI checkout workspace with PayPal Sandbox and clearly labeled experimental payment simulations.">
+    <title>SoloCart — AI checkout workspace</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="wordmark" href="/" aria-label="SoloCart home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>SoloCart</span></a>
+        <div class="topbar-right">
+          <span class="mode-indicator"><span class="mode-dot"></span><span id="connection-label">Preview mode</span></span>
+          <button class="avatar" type="button" aria-label="Local demo profile">S</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="page-title">
+          <div>
+          <h1 id="page-title">From customer message<br><em>to confident checkout.</em></h1>
+            <p class="intro-copy">AI organizes the request. You review every detail. PayPal Sandbox handles buyer approval.</p>
+          </div>
+          <div class="trust-note"><span class="trust-symbol" aria-hidden="true">SAFE</span><p><strong>You stay in control.</strong><br>Nothing is charged until the buyer approves in PayPal.</p></div>
+        </section>
+
+        <section class="workspace" aria-label="Order builder">
+          <div class="composer panel">
+            <div class="section-heading">
+              <div><span class="step-number">A</span><h2>Start with the request</h2></div>
+              <span class="step-caption">Plain language is fine</span>
+            </div>
+            <label for="order-prompt" class="field-label">What did your customer ask for?</label>
+            <textarea id="order-prompt" rows="5" maxlength="1200" placeholder="For example: 2 handwoven baskets at $18 each, delivery $5"></textarea>
+            <div class="composer-footer">
+              <p class="privacy-note" id="privacy-note"><span class="lock-icon" aria-hidden="true">◈</span> Order details stay on this device in preview mode.</p>
+              <button class="button button-primary" id="prepare-order" type="button"><span>Organize order</span></button>
+            </div>
+            <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+          </div>
+
+          <aside class="order-panel panel" aria-labelledby="order-heading">
+            <div class="section-heading">
+              <div><span class="step-number">B</span><h2 id="order-heading">Review the order</h2></div>
+              <span class="draft-badge" id="order-state">Waiting for a request</span>
+            </div>
+            <div class="empty-order" id="empty-order"><p>Your order details will appear here.</p></div>
+            <div id="order-content" hidden>
+              <div class="table-head"><span>ITEM</span><span>QTY</span><span>PRICE</span></div>
+              <div id="line-items" class="line-items"></div>
+              <div class="shipping-row"><label for="shipping-amount">Delivery</label><div class="money-input"><span>$</span><input id="shipping-amount" type="number" min="0" max="10000" step="0.01" value="0.00" inputmode="decimal" aria-label="Delivery fee in dollars"></div></div>
+              <div class="totals"><div><span>Items</span><span id="item-total">$0.00</span></div><div class="grand-total"><span>Total</span><strong id="order-total">$0.00</strong></div></div>
+              <p class="order-note" id="order-note"></p>
+              <div class="checkout-area">
+                <button class="button button-paypal" id="create-checkout" type="button" disabled><span class="paypal-wordmark" aria-hidden="true"><b>Pay</b><i>Pal</i></span><span id="checkout-label">Create sandbox checkout</span></button>
+                <p id="checkout-footnote">Sandbox checkout only. The buyer reviews and approves on PayPal.</p>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="demo-grid" aria-label="Payment route and companion simulations">
+          <article class="panel routes-panel">
+            <div class="section-heading"><div><span class="step-number">C</span><h2>Payment routes</h2></div><span class="simulation-tag">SIMULATION</span></div>
+            <p class="panel-intro">Explore how a future checkout could divide an order. Only PayPal Sandbox checkout moves through a payment provider.</p>
+            <div class="route-list">
+              <label class="route-row"><span class="route-icon paypal-icon">P</span><span class="route-name"><strong>PayPal USD</strong><small>Sandbox checkout rail</small></span><input class="route-share" data-route="paypal" type="range" min="0" max="100" value="100" aria-label="PayPal USD simulated allocation" disabled><output data-route-value="paypal">100%</output></label>
+              <label class="route-row"><span class="route-icon privacy-icon">◈</span><span class="route-name"><strong>Privacy credit</strong><small>Illustrative data-credit concept</small></span><input class="route-share" data-route="privacy" type="range" min="0" max="100" value="0" aria-label="Privacy credit simulated allocation"><output data-route-value="privacy">$0.00</output></label>
+              <label class="route-row"><span class="route-icon token-icon">◇</span><span class="route-name"><strong>Conditional token</strong><small>Illustrative digital-token concept</small></span><input class="route-share" data-route="token" type="range" min="0" max="100" value="0" aria-label="Conditional token simulated allocation"><output data-route-value="token">$0.00</output></label>
+              <label class="route-row"><span class="route-icon offline-icon">↗</span><span class="route-name"><strong>Offline reserve</strong><small>Illustrative offline-payment concept</small></span><input class="route-share" data-route="offline" type="range" min="0" max="100" value="0" aria-label="Offline reserve simulated allocation"><output data-route-value="offline">$0.00</output></label>
+            </div>
+            <div class="route-total"><span>Simulated allocation</span><strong id="route-total">$0.00</strong></div>
+            <p class="disclaimer">The split is illustrative and does not change checkout: PayPal Sandbox receives the full order total. No ZK proof, CBDC, token, offline transfer, or other asset is created or sent.</p>
+          </article>
+          <div class="side-stack">
+            <article class="panel security-panel">
+              <div class="section-heading"><div><span class="step-number">D</span><h2>Security activity</h2></div><span class="simulation-tag">DEMO ONLY</span></div>
+              <div class="security-metrics"><div><small>Risk signal</small><strong>Low · 08/100</strong></div><div><small>One-time nonce</small><code id="demo-nonce">SC-••••••••</code></div></div>
+              <p class="disclaimer">Illustrative status only. This demo does not perform risk scoring, passkey verification, or replay protection.</p>
+            </article>
+            <article class="panel pet-panel">
+              <div class="pet-avatar" aria-hidden="true">🤖</div>
+              <div class="pet-copy"><span class="simulation-tag">OPTIONAL COMPANION</span><h2>Byte is here to help</h2><p id="pet-status">Your friendly desk buddy is feeling curious.</p><div class="pet-actions"><button type="button" class="pet-button" data-pet-action="feed">Give a snack</button><button type="button" class="pet-button" data-pet-action="play">Play</button></div></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="how-it-works" aria-label="How SoloCart works">
+          <h2 class="how-title">Made for the moment between “sure” and “sent”</h2>
+          <div class="how-steps">
+            <article><span class="how-index">A</span><div><h3>Read the message</h3><p id="ai-step-copy">Turn natural language into products, quantities, and prices.</p></div></article>
+            <article><span class="how-index">B</span><div><h3>Check the details</h3><p>Review and adjust every line before anything reaches PayPal.</p></div></article>
+            <article><span class="how-index">C</span><div><h3>Send to checkout</h3><p>Create a PayPal Sandbox order and let the buyer approve it there.</p></div></article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer"><span>SoloCart</span><span>Built for the PayPal AI Hackathon · Sandbox demo</span><span>Payments only after buyer approval</span></footer>
+    </div>
+  </body>
+</html>
