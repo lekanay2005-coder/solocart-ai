@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
+    <script src="/byte.js" defer></script>
     <script src="/app.js" type="module"></script>
   </head>
   <body>
@@ -25,6 +26,7 @@
             <summary>More</summary>
             <div class="more-menu">
               <a href="#offline" data-page="offline">Offline pay</a>
+              <a href="#automations" data-page="automations">Automations</a>
               <a href="#routes" data-page="routes">Payment routes</a>
               <a href="#security" data-page="security">Security center</a>
               <a href="#companion" data-page="companion">Byte’s corner</a>
@@ -46,6 +48,7 @@
           <summary>More</summary>
           <div class="more-menu">
             <a href="#offline" data-page="offline">Offline pay</a>
+            <a href="#automations" data-page="automations">Automations</a>
             <a href="#routes" data-page="routes">Payment routes</a>
             <a href="#security" data-page="security">Security center</a>
             <a href="#companion" data-page="companion">Byte’s corner</a>
@@ -64,6 +67,7 @@
           </div>
           <section class="quick-actions"><a class="quick-action" href="#workspace"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><strong>Create order</strong><small>From a customer message</small></a><a class="quick-action" href="#activity"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 17 17 5M7 5h10v10"/><path d="M5 5v14h14"/></svg></span><strong>View activity</strong><small>Recent checkout events</small></a><a class="quick-action" href="#routes"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 9 9-9 9-9-9z"/><path d="M12 8v8m-4-4h8"/></svg></span><strong>Payment routes</strong><small>See the checkout model</small></a></section>
           <section class="panel recent-panel"><div class="page-heading"><h2>Recent activity</h2><a href="#activity">See all</a></div><div id="overview-activity" class="activity-list"></div></section>
+          <section class="panel report-panel" aria-label="Desk report"><div class="page-heading"><h2>Desk report</h2><span class="simulation-tag">AI-FREE · COMPUTED IN CODE</span></div><div id="report-content" class="report-grid"><p class="report-empty">Loading the brief…</p></div></section>
         </section>
 
         <section class="app-page" data-view="orders" hidden><div class="page-title-row"><div><h1>Your orders</h1><p class="intro-copy">Drafts and checkout outcomes are stored on this server, per account.</p></div><a class="button button-primary" href="#workspace">Create an order</a></div><div id="orders-list" class="orders-grid"></div></section>
@@ -74,7 +78,7 @@
 
         <section class="app-page" data-view="security" hidden><div class="page-title-row"><div><h1>Security center</h1><p class="intro-copy">Understand how this local prototype protects your account.</p></div></div><div class="security-grid"><article class="panel"><div class="security-card-heading"><span class="security-icon" aria-hidden="true">✓</span><h2>Password protection</h2></div><p>Passwords are hashed with scrypt and a unique random salt before they are stored.</p></article><article class="panel"><div class="security-card-heading"><span class="security-icon" aria-hidden="true">◉</span><h2>Private session</h2></div><p>Sign-in uses an HttpOnly, SameSite cookie. The session expires automatically and is cleared when you log out.</p></article><article class="panel"><div class="security-card-heading"><span class="security-icon" aria-hidden="true">⌁</span><h2>Request safeguards</h2></div><p>Same-origin checks, basic login throttling, and security headers protect account requests.</p></article><article class="panel"><div class="security-card-heading"><span class="security-icon" aria-hidden="true">!</span><h2>Prototype scope</h2></div><p>Accounts are stored locally on this server. No email verification, recovery, passkeys, or multi-server session store is configured.</p></article></div></section>
 
-        <section class="app-page" data-view="companion" hidden><div class="page-title-row"><div><h1>Byte’s corner</h1><p class="intro-copy">A small companion to keep order prep feeling human.</p></div></div><section class="panel byte-page"><div class="pet-avatar large" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 5v5"/><circle class="pet-antenna" cx="24" cy="4" r="2"/><rect x="6" y="11" width="36" height="29" rx="10"/><path d="M12 42h24"/><circle class="pet-eye" cx="18" cy="24" r="2.5"/><circle class="pet-eye" cx="30" cy="24" r="2.5"/><path d="M18 32c3.5 3 8.5 3 12 0"/></svg></div><div><span class="simulation-tag">SOLOCART COMPANION</span><h2>Hi, I’m Byte.</h2><p id="byte-page-status">I can keep you company while you prepare an order. I’ll never submit or charge anything for you.</p><div class="pet-actions"><button class="pet-button" type="button" data-pet-action="feed">Give a snack</button><button class="pet-button" type="button" data-pet-action="play">Play</button><a class="button button-primary" href="#workspace">Prepare an order</a></div></div></section>
+        <section class="app-page" data-view="companion" hidden><div class="page-title-row"><div><h1>Byte’s corner</h1><p class="intro-copy">A small companion to keep order prep feeling human.</p></div></div><section class="panel byte-page"><div class="pet-avatar large" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 5v5"/><circle class="pet-antenna" cx="24" cy="4" r="2"/><rect x="6" y="11" width="36" height="29" rx="10"/><path d="M12 42h24"/><circle class="pet-eye" cx="18" cy="24" r="2.5"/><circle class="pet-eye" cx="30" cy="24" r="2.5"/><path class="pet-mouth" d="M18 32c3.5 3 8.5 3 12 0"/><path class="pet-frown" d="M18 35c3.5 -3 8.5 -3 12 0"/><ellipse class="pet-mouth-o" cx="24" cy="33.5" rx="2.6" ry="3"/><path class="pet-eye-closed" d="M15.5 24h5M27.5 24h5"/><path class="pet-eye-happy" d="M15.5 25.5q2.5 -3 5 0M27.5 25.5q2.5 -3 5 0"/><path class="pet-brow" d="M15.5 19.5 20 20.8M32.5 19.5 28 20.8"/><text class="pet-zzz" x="37" y="12">z</text></svg></div><div><span class="simulation-tag">SOLOCART COMPANION</span><h2>Hi, I’m Byte.</h2><p id="byte-page-status">I can keep you company while you prepare an order. I’ll never submit or charge anything for you.</p><div class="pet-actions"><button class="pet-button" type="button" data-pet-action="feed">Give a snack</button><button class="pet-button" type="button" data-pet-action="play">Play</button><a class="button button-primary" href="#workspace">Prepare an order</a></div></div></section>
           <section class="panel ask-panel" aria-labelledby="ask-heading">
             <div class="section-heading"><div><span class="step-number">E</span><h2 id="ask-heading">Ask Byte</h2></div><span class="simulation-tag">ONE ACTION · CONFIRM TO WRITE</span></div>
             <p class="panel-intro">Type or say a command. Byte turns it into a single plan: reads run straight away, anything that sends, changes or deletes waits for your confirm click.</p>
@@ -118,7 +122,88 @@
           </div>
         </section>
 
-        <section class="app-page" data-view="settings" hidden><div class="page-title-row"><div><h1>Settings</h1><p class="intro-copy">Make SoloCart comfortable for your workday.</p></div></div><section class="panel settings-list"><div class="setting-row"><div><strong>Appearance</strong><p>Switch between light and night mode.</p></div><button class="button button-secondary" id="theme-toggle" type="button">Use night mode</button></div><div class="setting-row"><div><strong>Private amounts</strong><p>Hide totals in overview, activity, and order lists. The checkout review stays visible.</p></div><button class="button button-secondary" id="settings-balance-toggle" type="button">Hide amounts</button></div><div class="setting-row"><div><strong>Account</strong><p id="settings-account-label">No account signed in</p></div><a class="button button-secondary" href="#account">Manage account</a></div>
+        <section class="app-page" data-view="automations" hidden aria-label="Automations">
+          <div class="page-title-row"><div><h1>Automations</h1><p class="intro-copy">Recipes run themselves — on a schedule, when an order event happens, or from a secret link. Read-only steps run on their own; anything that sends, changes or deletes waits for your yes.</p></div><span class="simulation-tag">AI-PLANNED · APPROVAL-GATED</span></div>
+          <div class="notice" id="recipes-notice" role="status" aria-live="polite" hidden></div>
+
+          <section class="panel" id="approvals-panel" hidden>
+            <div class="section-heading"><div><span class="step-number">A</span><h2>Waiting for your yes</h2></div><span class="step-caption">NOTHING RUNS UNTIL YOU CONFIRM</span></div>
+            <div id="approvals-list" class="stacked-rows"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-heading"><div><span class="step-number">B</span><h2>Your recipes</h2></div><span class="step-caption" id="recipes-ai-note"></span></div>
+            <div id="recipes-list" class="stacked-rows"></div>
+            <form id="recipe-form" class="stacked-form">
+              <label class="field-label" for="recipe-name">Name</label>
+              <input id="recipe-name" type="text" maxlength="60" required placeholder="Chase unpaid checkouts">
+              <label class="field-label" for="recipe-instructions">What should it do? (as you’d say it)</label>
+              <textarea id="recipe-instructions" rows="3" maxlength="4000" placeholder="If a checkout is unpaid after 24h, draft a reminder to chase it. When an order is captured, add a row to my sheet webhook with the order details."></textarea>
+              <div class="trigger-row">
+                <label class="field-label" for="recipe-trigger">Runs</label>
+                <select id="recipe-trigger">
+                  <option value="manual">only when you ask</option>
+                  <option value="schedule">on a schedule</option>
+                  <option value="order_event">when an order event happens</option>
+                  <option value="webhook">when its secret link is called</option>
+                </select>
+                <span id="recipe-schedule-fields" class="trigger-extra" hidden>
+                  <input id="recipe-time" type="time" value="08:00" aria-label="Run at time">
+                  <select id="recipe-days" aria-label="Days of the week">
+                    <option value="1,2,3,4,5">weekdays</option>
+                    <option value="0,1,2,3,4,5,6">every day</option>
+                    <option value="0,6">weekends</option>
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                  </select>
+                </span>
+                <select id="recipe-event" class="trigger-extra" hidden aria-label="Order event">
+                  <option value="order.captured">an order is captured</option>
+                  <option value="order.failed">an order fails</option>
+                  <option value="order.settled">an offline payment is redeemed</option>
+                </select>
+              </div>
+              <div class="trigger-row"><button class="button button-primary" type="submit">Save recipe</button></div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="section-heading"><div><span class="step-number">C</span><h2>Runs</h2></div><span class="step-caption">NEWEST FIRST</span></div>
+            <div id="runs-list" class="stacked-rows"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-heading"><div><span class="step-number">D</span><h2>MCP connections</h2></div><span class="step-caption">KEYS LOCKED ON THE SERVER</span></div>
+            <p class="panel-intro">Connect an MCP server (Zapier, Notion, your own) by link and key. The key is encrypted with <code>APP_VAULT_KEY</code> and never sent to the browser. Tools that only read run straight away; anything else asks first.</p>
+            <div id="connections-list" class="stacked-rows"></div>
+            <form id="connection-form" class="stacked-form">
+              <div class="trigger-row">
+                <label class="field-label" for="connection-name">Name</label>
+                <input id="connection-name" type="text" maxlength="40" required placeholder="Zapier">
+                <label class="field-label" for="connection-url">Server link</label>
+                <input id="connection-url" type="url" required placeholder="https://mcp.example.com/mcp">
+              </div>
+              <div class="trigger-row">
+                <label class="field-label" for="connection-auth">Sign-in</label>
+                <select id="connection-auth">
+                  <option value="none">none</option>
+                  <option value="bearer">Bearer token</option>
+                  <option value="header">custom header</option>
+                </select>
+                <span id="connection-secret-fields" class="trigger-extra" hidden>
+                  <input id="connection-key" type="password" autocomplete="off" placeholder="key / token" aria-label="Key or token">
+                  <input id="connection-header" type="text" placeholder="header name (custom)" aria-label="Header name">
+                </span>
+                <button class="button button-primary" type="submit">Connect</button>
+              </div>
+            </form>
+          </section>
+        </section>
+
+        <section class="app-page" data-view="settings" hidden><div class="page-title-row"><div><h1>Settings</h1><p class="intro-copy">Make SoloCart comfortable for your workday.</p></div></div><section class="panel settings-list"><div class="setting-row"><div><strong>Appearance</strong><p>Switch between light and night mode.</p></div><button class="button button-secondary" id="theme-toggle" type="button">Use night mode</button></div><div class="setting-row"><div><strong>Private amounts</strong><p>Hide totals in overview, activity, and order lists. The checkout review stays visible.</p></div><button class="button button-secondary" id="settings-balance-toggle" type="button">Hide amounts</button></div><div class="setting-row"><div><strong>Byte’s reactions</strong><p>Byte thinks while the AI runs, celebrates captures, worries on failures, and sleeps when the desk is quiet. Reduced motion is respected.</p></div><button class="button button-secondary" id="byte-reactions-toggle" type="button">Turn off</button></div><div class="setting-row"><div><strong>Account</strong><p id="settings-account-label">No account signed in</p></div><a class="button button-secondary" href="#account">Manage account</a></div>
             <div class="setting-row"><div><strong>What Byte remembers</strong><p id="facts-copy">Facts Byte has picked up about your desk. Passwords, codes and card numbers are never stored.</p><ul class="facts-list" id="facts-list"></ul></div><button class="button button-secondary" id="facts-forget-all" type="button">Forget everything</button></div></section></section>
 
         <section class="app-page" data-view="account" hidden><div class="page-title-row"><div><h1>Account</h1><p class="intro-copy" id="account-summary">Sign in or create a local SoloCart account.</p></div></div><section class="panel auth-panel"><div id="signed-out-actions"><a class="button button-primary" href="#signin">Sign in</a><a class="button button-secondary" href="#signup">Create account</a></div><div id="signed-in-actions" hidden><div class="profile-badge" id="profile-badge">S</div><div><strong id="profile-name">Seller</strong><p id="profile-email"></p></div><button id="signout-button" class="button button-secondary" type="button">Log out</button></div><p class="disclaimer">This prototype keeps account records on the SoloCart server. Use a unique password; account recovery and email verification are not set up.</p></section></section>
@@ -192,7 +277,7 @@
               <p class="disclaimer">Illustrative status only. This demo does not perform risk scoring, passkey verification, or replay protection.</p>
             </article>
             <article class="panel pet-panel">
-              <div class="pet-avatar" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><path d="M24 5v5"/><circle class="pet-antenna" cx="24" cy="4" r="2"/><rect x="6" y="11" width="36" height="29" rx="10"/><path d="M12 42h24"/><circle class="pet-eye" cx="18" cy="24" r="2.5"/><circle class="pet-eye" cx="30" cy="24" r="2.5"/><path d="M18 32c3.5 3 8.5 3 12 0"/></svg></div>
+              <div class="pet-avatar" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><path d="M24 5v5"/><circle class="pet-antenna" cx="24" cy="4" r="2"/><rect x="6" y="11" width="36" height="29" rx="10"/><path d="M12 42h24"/><circle class="pet-eye" cx="18" cy="24" r="2.5"/><circle class="pet-eye" cx="30" cy="24" r="2.5"/><path class="pet-mouth" d="M18 32c3.5 3 8.5 3 12 0"/><path class="pet-frown" d="M18 35c3.5 -3 8.5 -3 12 0"/><ellipse class="pet-mouth-o" cx="24" cy="33.5" rx="2.6" ry="3"/><path class="pet-eye-closed" d="M15.5 24h5M27.5 24h5"/><path class="pet-eye-happy" d="M15.5 25.5q2.5 -3 5 0M27.5 25.5q2.5 -3 5 0"/><path class="pet-brow" d="M15.5 19.5 20 20.8M32.5 19.5 28 20.8"/><text class="pet-zzz" x="37" y="12">z</text></svg></div>
               <div class="pet-copy"><span class="simulation-tag">OPTIONAL COMPANION</span><h2>Byte is here to help</h2><p id="pet-status">Your friendly desk buddy is feeling curious.</p><div class="pet-actions"><button type="button" class="pet-button" data-pet-action="feed">Give a snack</button><button type="button" class="pet-button" data-pet-action="play">Play</button></div></div>
             </article>
           </div>

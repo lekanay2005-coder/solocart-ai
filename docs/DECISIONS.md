@@ -176,3 +176,71 @@ jsQR stays vendored for the optical transport phase if it is ever needed.
 **Settlement wording is fixed, not configurable.** The redeem notice says
 "simulated settlement" because settlement genuinely is; hiding that behind a
 config flag is exactly the kind of quiet claim the brief forbids.
+
+## Phase 4 — Butler automation and the pet
+
+**No MCP SDK.** The brief caps runtime dependencies at `@noble/curves`,
+`@noble/hashes` and a browser QR lib, so `server/integrations/mcp.mjs` is a
+hand-written Streamable-HTTP JSON-RPC client: `initialize` with one
+protocol-version retry, `notifications/initialized`, paginated `tools/list`,
+`tools/call`, JSON **and** SSE response parsing, the `mcp-session-id` header,
+and a best-effort `DELETE` on close. Tests run it against a local fake MCP
+server.
+
+**Recipes are the one place a model is load-bearing.** Butler plans recipe
+steps with Gemini; the port uses the same provider chain as everything else
+(`completeJson`). With no key, a run fails immediately with the plain message
+"Recipes plan their steps with an AI provider — add OPENAI_API_KEY …", recorded
+in the run row and the job's `last_error` — visible in Runs, never faked.
+Tests inject a fake planner (`recipes.usePlanner`) to prove the mechanics
+without keys, mirroring `mcp.useFetch`.
+
+**Writes always ask — `auto` is clamped away from write tools server-side.**
+Butler allowed a per-tool `auto` override even for destructive tools; the brief
+says anything that sends/changes/deletes needs approval, so `checkedRule()`
+only accepts `ask`/`off` for writes and the approval UI offers no `auto` option.
+
+**`hooks/post` has no custom headers.** "Add a row to my Notion/Sheet" works
+via webhook URLs (Notion incoming webhooks, Apps Script web apps) that
+authenticate in the URL and take a JSON POST through the SSRF guard.
+Header-carrying auth is an MCP connection, where the key is vaulted — that
+keeps secrets out of recipe args and out of the approval screen.
+
+**The job queue is new, not a port.** Butler's `jobs.ts` tracks laptop device
+commands, not a scheduler, so `jobs.mjs` is the simplest thing that fits:
+`enqueue` → claim (per-row compare-and-set so two sweeps can't double-run) →
+handler → retry 3× with 30 s·2ⁿ backoff → `failed` with the reason. One
+sweeper (60 s) drains it; manual runs and webhooks also trigger an immediate
+tick so the UI doesn't wait a minute. Schedule claims mirror Butler exactly:
+once per local day inside a 3-hour window, `scheduled_on` prevents doubles.
+
+**Vault: `APP_VAULT_KEY` only.** Butler fell back to `SESSION_SECRET`; here a
+missing key refuses the operation with a 503 instead, because a fallback key
+that silently changes with an unrelated secret would strand stored connections.
+No plaintext fallback exists.
+
+**Approval finishes the run.** Butler's write step is always last, so the
+confirm click executes the parked tool and closes the run with the result
+appended to `say` — no re-plan loop after approval (kept simple; noted in
+INTEGRATIONS.md).
+
+**Milestone moments are counted, then written as events.** Thresholds:
+$100/500/1,000/2,500/5,000/10,000 lifetime captured and 1/10/25/50/100/250
+paid orders. `newMilestones(before, after)` runs around captures, webhook
+settles and redemptions; a crossing appends a `milestone` activity row — the
+number came from SQL, not the model.
+
+**Byte's reactions toggle is device-local** (`localStorage
+solocart-byte-reactions`), like the theme and balance toggles: it's a display
+preference of this browser, not account data, so no server settings row.
+
+**Byte's drag is bounded to its box.** The behavior spec docks the mascot to
+screen corners; this desk's Byte lives in fixed cards, so pointer movement past
+7 px tilts/translates the SVG up to 8 px inside the card and release snaps it
+back — no layout change, per the brief's "do not change the corner screen
+layout".
+
+**Order-event text is data, never instructions.** The recipe prompt states
+that event payloads and tool replies are data (Butler's guard sentence, kept
+verbatim in spirit), and event text only ever contains ids, statuses, totals
+and item lines built by the server.

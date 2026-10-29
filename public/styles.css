@@ -653,3 +653,95 @@ textarea:focus, input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px 
 .offline-pay-box input { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); }
 .pay-disclaimer { max-width: 860px; margin: 34px auto 10px; text-align: center; }
 .pay-disclaimer code { font-family: var(--mono); font-size: 12px; }
+
+/* --- Byte state machine (phase 4) ------------------------------------------------ */
+/* Poses are CSS on top of the same SVG art; the resting look is unchanged. */
+.pet-avatar { overflow: hidden; }
+.pet-avatar svg { transition: transform .25s cubic-bezier(.34,1.4,.64,1); transform-origin: 50% 85%; }
+.pet-avatar .pet-frown,
+.pet-avatar .pet-mouth-o,
+.pet-avatar .pet-eye-closed,
+.pet-avatar .pet-eye-happy,
+.pet-avatar .pet-brow,
+.pet-avatar .pet-zzz { opacity: 0; }
+.pet-avatar .pet-zzz { font: 700 11px/1 var(--sans); stroke: none; }
+.pet-avatar .pet-mouth-o { transform-box: fill-box; transform-origin: center; }
+.pet-avatar .pet-antenna { transform-box: fill-box; transform-origin: center; }
+
+.pet-avatar[data-state="idle"] svg { animation: byte-breathe 3.2s ease-in-out infinite; }
+.pet-avatar[data-state="blink"] .pet-eye,
+.pet-avatar[data-state="sleep"] .pet-eye { opacity: 0; }
+.pet-avatar[data-state="blink"] .pet-eye-closed,
+.pet-avatar[data-state="sleep"] .pet-eye-closed { opacity: 1; }
+.pet-avatar[data-state="sleep"] .pet-zzz { opacity: 1; }
+.pet-avatar[data-state="sleep"] svg { transform: translateY(9%); animation: none; }
+.pet-avatar[data-state="peek"] svg { transform: translateY(38%); animation: none; }
+.pet-avatar[data-state="hide"] svg { transform: translateY(75%); opacity: .3; animation: none; }
+.pet-avatar[data-state="success"] .pet-eye { opacity: 0; }
+.pet-avatar[data-state="success"] .pet-eye-happy { opacity: 1; }
+.pet-avatar[data-state="error"] .pet-mouth,
+.pet-avatar[data-state="error"] .pet-eye { opacity: 0; }
+.pet-avatar[data-state="error"] .pet-frown { opacity: 1; }
+.pet-avatar[data-state="error"] .pet-brow { opacity: 1; }
+.pet-avatar[data-state="attention"] .pet-brow { opacity: 1; transform: translateY(-1.5px); }
+.pet-avatar[data-state="attention"] .pet-antenna { animation: byte-pulse 1.1s ease-in-out infinite; }
+.pet-avatar[data-state="speak"] .pet-mouth,
+.pet-avatar[data-state="work"] .pet-mouth { opacity: 0; }
+.pet-avatar[data-state="speak"] .pet-mouth-o { opacity: 1; animation: byte-speak .34s ease-in-out infinite; }
+.pet-avatar[data-state="work"] .pet-mouth-o { opacity: 1; }
+.pet-avatar[data-state="work"] svg { transform: rotate(-2deg); animation: none; }
+.pet-avatar[data-state="think"] svg { transform: rotate(-1.5deg); animation: none; }
+.pet-avatar[data-state="think"] .pet-eye { transform: translateY(-1px); }
+.pet-avatar[data-state="listen"] svg { transform: rotate(2deg); animation: none; }
+
+@keyframes byte-breathe { 50% { transform: scale(1.012); } }
+@keyframes byte-speak { 50% { transform: scaleY(.55); } }
+@keyframes byte-pulse { 50% { transform: scale(1.6); } }
+
+/* Reduced motion: poses still change, just without loops, sways or bobs. */
+@media (prefers-reduced-motion: reduce) {
+  .pet-avatar svg,
+  .pet-avatar .pet-antenna,
+  .pet-avatar .pet-mouth-o { animation: none !important; transition: none !important; }
+  .pet-avatar[data-state="peek"] svg,
+  .pet-avatar[data-state="sleep"] svg,
+  .pet-avatar[data-state="hide"] svg,
+  .pet-avatar[data-state="work"] svg,
+  .pet-avatar[data-state="think"] svg,
+  .pet-avatar[data-state="listen"] svg { transform: none; }
+}
+
+/* --- Desk report (phase 4) ------------------------------------------------------- */
+.report-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.report-block h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.report-block pre { margin: 0; white-space: pre-wrap; font: 500 13px/1.65 var(--sans); color: var(--ink); }
+.report-block .report-figures { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
+.report-block .report-figures div { display: grid; gap: 2px; }
+.report-block .report-figures strong { font: 650 22px/1 var(--sans); }
+.report-block .report-figures small { color: var(--muted); font-size: 12px; }
+.report-empty { color: var(--muted); font-size: 14px; margin: 0; }
+
+/* --- Automations (phase 4) ------------------------------------------------------- */
+.stacked-rows { display: grid; gap: 10px; margin-bottom: 6px; }
+.stacked-row { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: color-mix(in srgb, var(--surface) 92%, transparent); }
+.stacked-row-main { display: grid; gap: 4px; min-width: 0; }
+.stacked-row-main strong { font-size: 14px; }
+.stacked-row-main p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.stacked-row-main code { font: 500 11px/1.5 var(--mono); word-break: break-all; color: var(--muted); }
+.stacked-row-side { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.stacked-row .status-pill { font-size: 10px; }
+.stacked-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.stacked-row-actions .button { padding: 8px 12px; font-size: 12px; }
+.stacked-empty { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+.stacked-form { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 12px; }
+.stacked-form input,
+.stacked-form textarea,
+.stacked-form select { min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); font: 500 14px/1.5 var(--sans); }
+.stacked-form textarea { min-height: 74px; resize: vertical; }
+.trigger-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.trigger-row .field-label { margin: 0; }
+.trigger-row select, .trigger-row input { min-height: 40px; }
+.trigger-extra { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.approval-card { border-left: 3px solid var(--amber, #f2b544); }
+.run-say { font: 500 12px/1.6 var(--mono); color: var(--muted); white-space: pre-wrap; }
+@media (max-width: 700px) { .stacked-row { flex-direction: column; } .stacked-row-side { justify-content: flex-start; } }

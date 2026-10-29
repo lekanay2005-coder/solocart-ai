@@ -26,7 +26,15 @@ import * as offline from './server/offline/ledger.mjs';
 import { extract } from './server/ai/orders.mjs';
 import { activeLabel, providerStatus, providersReady } from './server/ai/providers.mjs';
 import { composeTotals, totals } from './server/summaries/spending.mjs';
-import { readPeriod, safeZone } from './server/summaries/periods.mjs';
+import { readPeriod, safeZone, localIso } from './server/summaries/periods.mjs';
+import * as brief from './server/summaries/brief.mjs';
+import * as recap from './server/summaries/recap.mjs';
+import * as streaks from './server/summaries/streaks.mjs';
+import * as recipes from './server/integrations/recipes.mjs';
+import * as jobs from './server/integrations/jobs.mjs';
+import * as mcp from './server/integrations/mcp.mjs';
+import * as tools from './server/integrations/tools.mjs';
+import { vaultReady } from './server/integrations/vault.mjs';
 import {
   HttpError,
   deviceCookie,
@@ -74,11 +82,25 @@ const sweeper = setInterval(() => {
     orderslib.expireStaleOrders();
     auth.purgeExpiredSessions();
     memory.pruneTurns();
+    runScheduledJobs();
   } catch (error) {
     console.error('[sweeper]', error?.message || error);
   }
 }, 60_000);
 sweeper.unref();
+
+/** Phase 4: due schedules become recipe jobs, and the job queue drains. */
+function runScheduledJobs() {
+  const local = localIso(new Date(), safeZone(process.env.APP_TZ));
+  for (const recipe of recipes.claimDue(local)) {
+    recipes.start(recipe.userId, recipe.id, { trigger: 'schedule' });
+  }
+  jobs.tick().catch((error) => console.error('[jobs]', error?.message || error));
+}
+
+// Catch up schedules that came due while the server was down (within the
+// 3-hour window), then let the every-minute sweeper take over.
+setTimeout(runScheduledJobs, 3_000).unref();
 
 const server = createServer((request, response) => {
   handle(request, response).catch((error) => {
@@ -105,6 +127,9 @@ async function handle(request, response) {
 
   if (url.pathname === '/healthz') return sendJson(response, 200, health());
   if (url.pathname === '/paypal/webhook') return handleWebhook(request, response);
+  // Recipe webhooks sit outside /api/: their callers are external services,
+  // so the same-origin rule doesn't apply — the secret token is the check.
+  if (url.pathname.startsWith('/hooks/')) return handleRecipeHook(request, response, url);
   if (url.pathname.startsWith('/api/')) return handleApi(request, response, url);
   if (url.pathname === '/paypal/return' || url.pathname === '/paypal/cancel') {
     return handlePaypalReturn(request, response, url);
@@ -209,6 +234,39 @@ async function handleApi(request, response, url) {
 
   if (path === '/api/ask' && method === 'POST') return askByte(request, response);
   if (path === '/api/ask/confirm' && method === 'POST') return confirmAsk(request, response);
+
+  // Phase 4: automation (Butler port).
+  if (path === '/api/report' && method === 'GET') return sendReport(request, response);
+  if (path === '/api/recipes' && method === 'GET') return listRecipes(request, response);
+  if (path === '/api/recipes' && method === 'POST') return saveRecipeRoute(request, response);
+  if (path === '/api/recipes/runs' && method === 'GET') return listRecipeRuns(request, response);
+  if (path.startsWith('/api/recipes/approvals/') && method === 'POST') {
+    return approveRecipeRun(request, response, path.slice('/api/recipes/approvals/'.length));
+  }
+  if (path.startsWith('/api/recipes/') && path.endsWith('/run') && method === 'POST') {
+    return runRecipe(request, response, path.slice('/api/recipes/'.length, -'/run'.length));
+  }
+  if (path.startsWith('/api/recipes/') && path.endsWith('/hook') && method === 'POST') {
+    return makeRecipeHook(request, response, path.slice('/api/recipes/'.length, -'/hook'.length));
+  }
+  if (path.startsWith('/api/recipes/') && path.endsWith('/hook') && method === 'DELETE') {
+    return dropRecipeHook(request, response, path.slice('/api/recipes/'.length, -'/hook'.length));
+  }
+  if (path.startsWith('/api/recipes/') && method === 'DELETE') {
+    return deleteRecipe(request, response, path.slice('/api/recipes/'.length));
+  }
+  if (path === '/api/integrations' && method === 'GET') return listIntegrations(request, response);
+  if (path === '/api/integrations' && method === 'POST') return addIntegration(request, response);
+  if (path === '/api/integrations/calls' && method === 'GET') return listIntegrationCalls(request, response);
+  if (path.startsWith('/api/integrations/') && path.endsWith('/refresh') && method === 'POST') {
+    return refreshIntegration(request, response, path.slice('/api/integrations/'.length, -'/refresh'.length));
+  }
+  if (path.startsWith('/api/integrations/') && path.endsWith('/rules') && method === 'POST') {
+    return setIntegrationRule(request, response, path.slice('/api/integrations/'.length, -'/rules'.length));
+  }
+  if (path.startsWith('/api/integrations/') && method === 'DELETE') {
+    return deleteIntegration(request, response, path.slice('/api/integrations/'.length));
+  }
 
   // Phase 3: offline payments (Morrow port).
   if (path === '/api/offline/request' && method === 'POST') return issueOfflineRequest(request, response);
@@ -361,7 +419,11 @@ async function confirmOfflinePayment(request, response) {
 async function redeemOfflinePayment(request, response) {
   const user = attachIdentity(request, response);
   const body = await readJson(request);
+  const before = streaks.lifetimeRevenue(user.id);
   const result = await offline.redeem(user, String(body.requestId || ''));
+  noteMilestones(user.id, before);
+  recipes.onOrderEvent(user.id, 'order.settled',
+    `Event: order event\nRequest ${result.requestId} redeemed over ${result.channel} — order moved to settled (settlement simulated, see docs/OFFLINE_PAYMENTS.md).`);
   return sendJson(response, 200, {
     redeemed: true,
     requestId: result.requestId,
@@ -369,6 +431,269 @@ async function redeemOfflinePayment(request, response) {
     channel: result.channel,
     notice: result.notice,
   });
+}
+
+// --- automation routes (phase 4) ---------------------------------------------------
+
+function ownedRecipe(user, id) {
+  const recipe = recipes.byId(user.id, id);
+  if (!recipe) throw new HttpError(404, 'That recipe does not exist.', 'not_found');
+  return recipe;
+}
+
+async function listRecipes(request, response) {
+  const user = attachIdentity(request, response);
+  return sendJson(response, 200, {
+    recipes: recipes.list(user.id).map((recipe) => ({ ...recipe, schedule: recipes.describeSchedule(recipe) })),
+    pending: recipes.pendingRuns(user.id),
+    runs: recipes.recentRuns(user.id, 15),
+    jobs: jobs.recentJobs(user.id, 10),
+    // Recipes plan their steps with an AI provider; without one, runs fail
+    // visibly in Runs history rather than pretending.
+    ai: providersReady(),
+    vault: vaultReady() ? 'ready' : 'missing_key',
+    orderEvents: recipes.ORDER_EVENTS,
+    tools: tools.offers(user.id).map((offer) => ({
+      key: offer.key,
+      kind: offer.kind,
+      readOnly: offer.tool.readOnly,
+      description: offer.tool.description,
+      rule: offer.rule,
+    })),
+  });
+}
+
+async function listRecipeRuns(request, response) {
+  const user = attachIdentity(request, response);
+  return sendJson(response, 200, {
+    runs: recipes.recentRuns(user.id, 30),
+    pending: recipes.pendingRuns(user.id),
+    jobs: jobs.recentJobs(user.id, 20),
+  });
+}
+
+async function saveRecipeRoute(request, response) {
+  const user = attachIdentity(request, response);
+  const body = await readJson(request);
+  const id = String(body.id || '') || null;
+  try {
+    const recipe = recipes.save(user.id, id, {
+      name: body.name,
+      instructions: body.instructions,
+      trigger: body.trigger || 'manual',
+      config: body.config || {},
+    });
+    return sendJson(response, id ? 200 : 201, {
+      recipe: { ...recipe, schedule: recipes.describeSchedule(recipe) },
+    });
+  } catch (error) {
+    // save() validates in plain words; those are the seller's mistakes, not 500s.
+    throw new HttpError(400, String(error?.message || error), 'invalid_recipe');
+  }
+}
+
+async function deleteRecipe(request, response, id) {
+  const user = attachIdentity(request, response);
+  if (!recipes.remove(user.id, id)) throw new HttpError(404, 'That recipe does not exist.', 'not_found');
+  return sendJson(response, 200, { deleted: 1 });
+}
+
+async function runRecipe(request, response, id) {
+  const user = attachIdentity(request, response);
+  const recipe = ownedRecipe(user, id);
+  recipes.start(user.id, recipe.id, { trigger: 'manual' });
+  return sendJson(response, 202, {
+    queued: true,
+    recipe: recipe.name,
+    notice: providersReady()
+      ? 'Run queued — watch it in Runs; a write step will wait for your approval.'
+      : 'Run queued, but no AI provider is configured: it will fail with that message in Runs.',
+  });
+}
+
+async function makeRecipeHook(request, response, id) {
+  const user = attachIdentity(request, response);
+  const recipe = ownedRecipe(user, id);
+  let token;
+  try {
+    token = await recipes.makeHook(user.id, recipe.id);
+  } catch (error) {
+    throw new HttpError(503, String(error?.message || error), 'vault_unconfigured');
+  }
+  return sendJson(response, 200, {
+    token,
+    url: `${appBaseUrl}/hooks/${token}`,
+    hasHook: true,
+    notice: 'Anyone holding this link can start the recipe (rate-limited). Shown once — regenerate it if it leaks.',
+  });
+}
+
+async function dropRecipeHook(request, response, id) {
+  const user = attachIdentity(request, response);
+  ownedRecipe(user, id);
+  recipes.dropHook(user.id, id);
+  return sendJson(response, 200, { hasHook: false });
+}
+
+/** The confirm/decline click: the only way a recipe's write step ever runs. */
+async function approveRecipeRun(request, response, runId) {
+  const user = attachIdentity(request, response);
+  const body = await readJson(request);
+  try {
+    const result = await recipes.approve(user.id, String(runId || ''), body.confirm === true);
+    return sendJson(response, 200, result);
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (/is gone/.test(message)) throw new HttpError(404, 'That run is gone.', 'not_found');
+    if (/already finished|no longer available/.test(message)) throw new HttpError(409, message, 'run_closed');
+    // The write was attempted and failed; the run row already says so.
+    throw new HttpError(400, message, 'approval_failed');
+  }
+}
+
+/** The desk report: morning brief, weekly recap, streak and milestones — all AI-free. */
+async function sendReport(request, response) {
+  const user = attachIdentity(request, response);
+  const now = new Date();
+  const timeZone = safeZone(process.env.APP_TZ);
+  const briefParts = brief.gather(now, timeZone, user.id);
+  const week = recap.gather(now, timeZone, user.id);
+  const lifetime = streaks.lifetimeRevenue(user.id);
+  const days = streaks.streak(streaks.saleDays(user.id, timeZone), brief.todayIn(now, timeZone));
+  const reachedDollars = streaks.MILESTONE_DOLLARS.filter((value) => lifetime.revenue >= value);
+  const reachedOrders = streaks.MILESTONE_ORDERS.filter((value) => lifetime.count >= value);
+  return sendJson(response, 200, {
+    brief: { text: brief.compose(briefParts, now, timeZone), parts: briefParts },
+    recap: { text: recap.compose(week) },
+    lifetime,
+    streak: {
+      days,
+      note: days >= 2 ? streaks.streakNote(days) : '',
+      cheering: streaks.streakWorthCheering(days),
+    },
+    milestones: {
+      reached: { dollars: reachedDollars, orders: reachedOrders },
+      next: {
+        dollars: streaks.MILESTONE_DOLLARS.find((value) => value > lifetime.revenue) ?? null,
+        orders: streaks.MILESTONE_ORDERS.find((value) => value > lifetime.count) ?? null,
+      },
+    },
+  });
+}
+
+// --- integrations routes (phase 4) ------------------------------------------------
+
+async function listIntegrations(request, response) {
+  const user = attachIdentity(request, response);
+  return sendJson(response, 200, {
+    connections: mcp.list(user.id),
+    calls: mcp.recentCalls(user.id, 15),
+    vault: vaultReady() ? 'ready' : 'missing_key',
+    rules: mcp.RULES,
+  });
+}
+
+async function listIntegrationCalls(request, response) {
+  const user = attachIdentity(request, response);
+  return sendJson(response, 200, { calls: mcp.recentCalls(user.id, 30) });
+}
+
+async function addIntegration(request, response) {
+  const user = attachIdentity(request, response);
+  if (!vaultReady()) {
+    throw new HttpError(503, 'Set APP_VAULT_KEY in .env before storing connection keys.', 'vault_unconfigured');
+  }
+  const body = await readJson(request);
+  try {
+    const connection = await mcp.add(user.id, String(body.name || ''), String(body.url || ''), {
+      auth: String(body.auth || 'none'),
+      key: String(body.key || ''),
+      header: String(body.header || ''),
+    });
+    return sendJson(response, 201, { connection });
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (/public addresses|https:\/\/|isn't a web address|password in the key box/.test(message)) {
+      throw new HttpError(400, message, 'blocked_address');
+    }
+    throw new HttpError(400, message, 'connect_failed');
+  }
+}
+
+async function deleteIntegration(request, response, id) {
+  const user = attachIdentity(request, response);
+  if (!mcp.remove(user.id, id)) throw new HttpError(404, 'That connection does not exist.', 'not_found');
+  return sendJson(response, 200, { deleted: 1 });
+}
+
+async function refreshIntegration(request, response, id) {
+  const user = attachIdentity(request, response);
+  try {
+    const connection = await mcp.refresh(user.id, id);
+    return sendJson(response, 200, { connection });
+  } catch (error) {
+    if (/gone/.test(String(error?.message))) throw new HttpError(404, 'That connection does not exist.', 'not_found');
+    throw error;
+  }
+}
+
+async function setIntegrationRule(request, response, id) {
+  const user = attachIdentity(request, response);
+  const body = await readJson(request);
+  try {
+    const connection = mcp.setRule(user.id, id, String(body.tool || ''), String(body.rule || ''));
+    return sendJson(response, 200, { connection });
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (/gone/.test(message)) throw new HttpError(404, 'That connection does not exist.', 'not_found');
+    throw new HttpError(400, message, 'bad_rule');
+  }
+}
+
+/**
+ * A recipe's secret link: external services call it (so it lives outside the
+ * same-origin rule — the token is the check), rate-limited per IP and per
+ * recipe, and the body is passed as data for the recipe to work on.
+ */
+async function handleRecipeHook(request, response, url) {
+  if (request.method !== 'POST') throw new HttpError(405, 'Method not allowed.', 'method');
+  if (!limitByIp(request)) {
+    return sendJson(response, 429, { error: 'Too many requests. Wait a moment and try again.', code: 'rate_limited' });
+  }
+  const token = url.pathname.slice('/hooks/'.length);
+  const recipe = await recipes.byHook(token);
+  if (!recipe) throw new HttpError(404, 'No recipe for that link.', 'not_found');
+  const body = await readJson(request, 8000).catch(() => ({}));
+  if (!recipes.limits.allow(recipe.id)) {
+    return sendJson(response, 429, { queued: false, reason: 'This recipe was started too recently.' });
+  }
+  recipes.start(recipe.userId, recipe.id, {
+    trigger: 'webhook',
+    eventText: JSON.stringify(body ?? {}).slice(0, 4000),
+  });
+  return sendJson(response, 202, { queued: true, recipe: recipe.name });
+}
+
+// --- phase 4 helpers ---------------------------------------------------------------
+
+/** Data-only text that starts a recipe — never instructions. */
+function orderEventText(order, status) {
+  const items = (order.items || []).map((item) => `${item.quantity} x ${item.name}`).join(', ');
+  return `Event: order event\nOrder ${order.id.slice(0, 8)} — status: ${status}, total: ${order.total} USD, `
+    + `customer: ${order.customer || 'unknown'}, items: ${items || 'none'}, note: ${order.note || '-'}`;
+}
+
+/** Milestone moments, counted in code, written to activity the instant they're real. */
+function noteMilestones(userId, before) {
+  const after = streaks.lifetimeRevenue(userId);
+  for (const milestone of streaks.newMilestones(before, after)) {
+    orderslib.addEvent(userId, {
+      kind: 'milestone',
+      title: milestone.note,
+      detail: streaks.milestoneNote(milestone),
+      amount: null,
+    });
+  }
 }
 
 // --- auth routes ----------------------------------------------------------------
@@ -531,6 +856,7 @@ function captureOnce(order) {
 
 /** Moves an order to `captured`, tolerating a webhook that got there first. */
 function markPaid(order, title) {
+  const before = streaks.lifetimeRevenue(order.userId);
   try {
     orderslib.transition(order, 'captured');
   } catch (error) {
@@ -543,6 +869,8 @@ function markPaid(order, title) {
     detail: `Buyer approval and capture succeeded · ${order.paypalOrderId}`,
     amount: order.total,
   });
+  noteMilestones(order.userId, before);
+  recipes.onOrderEvent(order.userId, 'order.captured', orderEventText(order, 'captured'));
 }
 
 function markFailed(order, title) {
@@ -558,6 +886,7 @@ function markFailed(order, title) {
     detail: `Sandbox order ${order.paypalOrderId}`,
     amount: null,
   });
+  recipes.onOrderEvent(order.userId, 'order.failed', orderEventText(order, 'failed'));
 }
 
 /**
@@ -581,6 +910,7 @@ async function handleWebhook(request, response) {
   if (order.status === status) return sendJson(response, 200, { received: true, idempotent: true });
 
   try {
+    const before = streaks.lifetimeRevenue(order.userId);
     orderslib.transition(order, status);
     orderslib.addEvent(order.userId, {
       kind: 'webhook',
@@ -588,6 +918,10 @@ async function handleWebhook(request, response) {
       detail: `${event.event_type} · ${paypalOrderId}`,
       amount: status === 'captured' ? order.total : null,
     });
+    if (status === 'captured') noteMilestones(order.userId, before);
+    recipes.onOrderEvent(order.userId,
+      status === 'captured' ? 'order.captured' : 'order.failed',
+      orderEventText(order, status));
   } catch (error) {
     // A twin delivery that lost the race is not an error; anything else is.
     if (!(error instanceof HttpError) || (error.code !== 'stale_status' && error.code !== 'illegal_transition')) throw error;

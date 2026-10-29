@@ -87,6 +87,7 @@ prepareButton.addEventListener('click', async () => {
   if (!description) return showNotice('Add the customer’s request first.', 'error');
   setBusy(prepareButton, true, 'Organizing…');
   hideNotice();
+  byte('ai:start');
   try {
     const response = await fetch('/api/parse-order', {
       method: 'POST',
@@ -99,12 +100,14 @@ prepareButton.addEventListener('click', async () => {
     renderOrder();
     await refreshDesk();
     renderLocalOrderPages();
+    byte('ai:done');
     const provider = String(appConfig.aiLabel || 'AI').split(' · ')[0];
     const mode = result.mode === 'ai' ? `${provider} extracted a draft.`
       : result.mode === 'rules' ? 'A pricing rule matched, so no AI was called.'
         : 'Local preview parser created a draft.';
     showNotice(`${mode} Check each line before you continue.`, 'success');
   } catch (error) {
+    byte('ai:error');
     showNotice(error.message || 'Could not organize that order.', 'error');
   } finally {
     setBusy(prepareButton, false, 'Organize order');
@@ -137,6 +140,7 @@ checkoutButton.addEventListener('click', async () => {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'PayPal Sandbox could not create this checkout.');
+    byte('success');
     if (result.mode !== 'sandbox' || !result.approvalUrl) {
       await refreshDesk();
       renderLocalOrderPages();
@@ -144,6 +148,7 @@ checkoutButton.addEventListener('click', async () => {
     }
     window.location.assign(result.approvalUrl);
   } catch (error) {
+    byte('ai:error');
     showNotice(error.message || 'PayPal Sandbox could not create this checkout.', 'error');
     setBusy(checkoutButton, false, checkoutLabel.textContent);
   }
@@ -257,13 +262,14 @@ function showPaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   const payment = params.get('payment');
   if (!payment) return;
-  if (payment === 'cancelled') showNotice('Checkout was cancelled. Your draft is still yours to edit.', 'success');
+  if (payment === 'cancelled') { showNotice('Checkout was cancelled. Your draft is still yours to edit.', 'success'); byte('wake'); }
   else if (payment === 'COMPLETED') {
     showNotice('Sandbox payment completed. The order was approved in PayPal Sandbox.', 'success');
+    byte('success');
     refreshDesk().then(renderLocalOrderPages);
   }
-  else if (payment === 'error') showNotice('PayPal returned to the app, but sandbox capture did not complete. Check the PayPal test account and try again.', 'error');
-  else if (payment === 'unavailable') showNotice('PayPal Sandbox return is unavailable until sandbox credentials are configured.', 'error');
+  else if (payment === 'error') { showNotice('PayPal returned to the app, but sandbox capture did not complete. Check the PayPal test account and try again.', 'error'); byte('ai:error'); }
+  else if (payment === 'unavailable') { showNotice('PayPal Sandbox return is unavailable until sandbox credentials are configured.', 'error'); byte('ai:error'); }
   if (window.history.replaceState) window.history.replaceState({}, '', '/');
 }
 
@@ -364,8 +370,10 @@ function setPage(name) {
   });
   document.querySelector('#app-pages').hidden = false;
   if (page === 'overview' || page === 'orders' || page === 'activity') renderLocalOrderPages();
+  if (page === 'overview') refreshReport();
   if (page === 'settings') refreshSettings();
   if (page === 'offline') refreshOffline();
+  if (page === 'automations') refreshAutomations();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -495,6 +503,7 @@ async function issueOfflineRequest() {
   if (!orderId) return;
   const button = document.querySelector('#offline-issue');
   button.disabled = true;
+  byte('work');
   try {
     const response = await fetch('/api/offline/request', {
       method: 'POST',
@@ -508,10 +517,12 @@ async function issueOfflineRequest() {
     document.querySelector('#offline-paylink').textContent = `${location.origin}${result.payUrl}`;
     document.querySelector('#offline-payload').value = result.payload;
     showOfflineNotice(result.notice, 'success');
+    byte('success');
     await renderOfflineQr(result.payload);
     await refreshOffline();
     refreshDesk().then(renderLocalOrderPages);
   } catch (error) {
+    byte('error');
     showOfflineNotice(error.message, 'error');
   } finally {
     button.disabled = !serverOrders.some((order) => order.status === 'draft');
@@ -536,6 +547,7 @@ async function renderOfflineQr(payload) {
 
 async function redeemOffline(requestId, button) {
   button.disabled = true;
+  byte('work');
   try {
     const response = await fetch('/api/offline/redeem', {
       method: 'POST',
@@ -544,11 +556,13 @@ async function redeemOffline(requestId, button) {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Could not redeem that payment.');
+    byte('success');
     showOfflineNotice(result.notice, 'success');
     await refreshOffline();
     await refreshDesk();
     renderLocalOrderPages();
   } catch (error) {
+    byte('error');
     showOfflineNotice(error.message, 'error');
     await refreshOffline();
   }
@@ -579,6 +593,8 @@ function refreshSettings() {
   document.querySelector('#theme-toggle').textContent = document.documentElement.dataset.theme === 'dark' ? 'Use light mode' : 'Use night mode';
   refreshFacts();
   document.querySelector('#settings-balance-toggle').textContent = amountsHidden ? 'Show amounts' : 'Hide amounts';
+  const byteToggle = document.querySelector('#byte-reactions-toggle');
+  if (byteToggle) byteToggle.textContent = window.Byte?.enabled === false ? 'Turn on' : 'Turn off';
 }
 function setAmountsHidden(hidden) {
   amountsHidden = hidden;
@@ -698,6 +714,7 @@ async function askByte(text) {
   const label = askSend.textContent;
   askSend.disabled = true;
   askSend.textContent = 'Thinking…';
+  byte('ai:start');
   document.querySelector('#pet-status').textContent = 'Byte is thinking…';
   try {
     const response = await fetch('/api/ask', {
@@ -709,15 +726,18 @@ async function askByte(text) {
     if (!response.ok) throw new Error(result.error || 'Byte could not read that.');
     if (result.needsConfirm) {
       askToken = result.token;
+      byte('ai:confirm');
       askPlanText.textContent = result.plan.reply || 'Byte wants to change something on your desk. Nothing has happened yet.';
       askPlan.hidden = false;
       setAskNotice('This one writes to your desk, so it waits for your confirm click.', 'info');
       document.querySelector('#pet-status').textContent = 'Byte is waiting for your approval…';
     } else {
       showByteReply(result.reply);
+      byte('ai:speak');
       setAskNotice('Read-only action — nothing was changed.', 'success');
     }
   } catch (error) {
+    byte('ai:error');
     setAskNotice(error.message, 'error');
     document.querySelector('#pet-status').textContent = 'Byte could not work that out.';
   } finally {
@@ -732,6 +752,7 @@ async function answerConfirmation(confirm) {
   askToken = null;
   askConfirm.disabled = true;
   askCancel.disabled = true;
+  byte('work');
   try {
     const response = await fetch('/api/ask/confirm', {
       method: 'POST',
@@ -741,10 +762,11 @@ async function answerConfirmation(confirm) {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'That confirmation could not be completed.');
     setAskNotice(result.reply, confirm ? 'success' : 'info');
-    if (confirm) showByteReply(result.reply);
+    if (confirm) { showByteReply(result.reply); byte('ai:done'); } else byte('wake');
     await refreshDesk();
     renderLocalOrderPages();
   } catch (error) {
+    byte('ai:error');
     setAskNotice(error.message, 'error');
   } finally {
     askPlan.hidden = true;
@@ -778,8 +800,8 @@ if (SpeechRecognitionCtor) {
       // Already starting; ignore.
     }
   });
-  recognition.onstart = () => { listening = true; askMic.textContent = 'Listening…'; };
-  recognition.onend = () => { listening = false; askMic.textContent = 'Speak'; };
+  recognition.onstart = () => { listening = true; askMic.textContent = 'Listening…'; byte('listen'); };
+  recognition.onend = () => { listening = false; askMic.textContent = 'Speak'; byte('wake'); };
   recognition.onerror = () => { listening = false; askMic.textContent = 'Speak'; };
   recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
@@ -826,3 +848,325 @@ document.querySelector('#facts-forget-all').addEventListener('click', async () =
   await fetch('/api/facts/forget-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   refreshFacts();
 });
+
+// --- Desk report + automations (phase 4) ------------------------------------------
+
+const byte = (name) => window.Byte?.event(name);
+
+// Morning brief, weekly recap, streak and milestones: every figure comes from
+// /api/report, where the server counted it in code. Nothing here is modeled.
+async function refreshReport() {
+  const container = document.querySelector('#report-content');
+  if (!container) return;
+  try {
+    const response = await fetch('/api/report');
+    if (!response.ok) throw new Error('unreachable');
+    const report = await response.json();
+    const reachedDollars = report.milestones.reached.dollars.map((value) => `$${value.toLocaleString('en')}`);
+    const reachedOrders = report.milestones.reached.orders.map((value) => `${value} paid order${value === 1 ? '' : 's'}`);
+    const reached = [...reachedDollars, ...reachedOrders];
+    const milestoneLine = reached.length
+      ? `Milestones reached: ${reached.join(' · ')}.${report.milestones.next.dollars ? ` Next: ${money(report.milestones.next.dollars)} captured.` : ''}`
+      : `No milestone yet — the first one is ${money(report.milestones.next.dollars || 100)} captured.`;
+    container.innerHTML = `
+      <article class="report-block"><h3>Morning brief</h3><pre>${escapeText(report.brief.text)}</pre></article>
+      <article class="report-block"><h3>Weekly recap</h3><pre>${escapeText(report.recap.text)}</pre></article>
+      <article class="report-block"><h3>Streaks &amp; milestones</h3>
+        <div class="report-figures">
+          <div><strong>${report.lifetime.count}</strong><small>paid orders ever</small></div>
+          <div><strong>${amountsHidden ? '••••' : money(report.lifetime.revenue)}</strong><small>lifetime captured</small></div>
+          <div><strong>${report.streak.days}</strong><small>day sale streak</small></div>
+        </div>
+        <p class="report-empty">${escapeText(report.streak.note || milestoneLine)}</p>
+        <p class="report-empty">${escapeText(milestoneLine)}</p>
+      </article>`;
+  } catch {
+    container.innerHTML = '<p class="report-empty">The desk report could not be loaded right now.</p>';
+  }
+}
+
+// --- Automations -------------------------------------------------------------------
+
+const recipesNotice = document.querySelector('#recipes-notice');
+const RUN_STATUS_LABELS = {
+  running: 'RUNNING',
+  done: 'DONE',
+  waiting: 'WAITING FOR YES',
+  failed: 'FAILED',
+  declined: 'DECLINED',
+};
+let automationsData = null;
+
+function showRecipesNotice(message, kind = 'info') {
+  if (!recipesNotice) return;
+  recipesNotice.textContent = message || '';
+  recipesNotice.dataset.kind = kind;
+  recipesNotice.hidden = !message;
+}
+
+async function refreshAutomations() {
+  try {
+    const [recipesResponse, connectionsResponse] = await Promise.all([
+      fetch('/api/recipes'),
+      fetch('/api/integrations'),
+    ]);
+    if (!recipesResponse.ok) throw new Error('Could not load automations.');
+    automationsData = await recipesResponse.json();
+    automationsData.connections = connectionsResponse.ok
+      ? (await connectionsResponse.json()).connections || []
+      : [];
+    renderAutomations();
+  } catch (error) {
+    showRecipesNotice(error.message || 'Could not load automations.', 'error');
+  }
+}
+
+function renderAutomations() {
+  const data = automationsData;
+  if (!data) return;
+
+  const aiNote = document.querySelector('#recipes-ai-note');
+  aiNote.textContent = data.ai
+    ? 'AI-PLANNED STEPS'
+    : 'NO AI KEY YET · RUNS WILL SAY SO';
+  if (!data.ai) {
+    showRecipesNotice('Recipes plan their steps with an AI provider. Until a key is set in .env, runs fail with that message in Runs — nothing is faked.', 'info');
+  }
+
+  const approvalsPanel = document.querySelector('#approvals-panel');
+  approvalsPanel.hidden = !data.pending.length;
+  document.querySelector('#approvals-list').innerHTML = data.pending.map(pendingRow).join('');
+
+  document.querySelector('#recipes-list').innerHTML = data.recipes.length
+    ? data.recipes.map(recipeRow).join('')
+    : '<p class="stacked-empty">No recipes yet. Write one below — read-only steps run on their own, writes wait for your yes.</p>';
+
+  document.querySelector('#runs-list').innerHTML = data.runs.length
+    ? data.runs.map(runRow).join('')
+    : '<p class="stacked-empty">No runs yet. Runs show exactly what each recipe did — and why one failed.</p>';
+
+  document.querySelector('#connections-list').innerHTML = data.connections.length
+    ? data.connections.map(connectionRow).join('')
+    : '<p class="stacked-empty">No MCP connections yet. Add one below to give recipes external tools (a tool that reads runs automatically; a tool that sends or writes always asks first).</p>';
+}
+
+function pendingRow(run) {
+  return `<article class="stacked-row approval-card"><div class="stacked-row-main">
+      <span class="status-pill">WAITING FOR YES</span>
+      <strong>${escapeText(run.recipeName || 'A recipe')} wants to run ${escapeText(run.waiting?.key || 'a tool')}</strong>
+      <code>${escapeText(JSON.stringify(run.waiting?.args || {}))}</code>
+      <p>${escapeText(run.say || 'The read steps are done. This last step changes something, so it waits.')}</p>
+    </div><div class="stacked-row-side stacked-row-actions">
+      <button class="button button-primary" type="button" data-approve="${escapeText(run.id)}">Confirm and run</button>
+      <button class="button button-secondary" type="button" data-decline="${escapeText(run.id)}">Decline</button>
+    </div></article>`;
+}
+
+function recipeRow(recipe) {
+  return `<article class="stacked-row"><div class="stacked-row-main">
+      <strong>${escapeText(recipe.name)}</strong>
+      <p>${escapeText(recipe.instructions.slice(0, 180))}</p>
+      <p><b>${escapeText(recipe.schedule)}</b> · ${escapeText(recipe.trigger.replace('_', ' '))} · ${recipe.lastRunAt ? `last run ${new Date(recipe.lastRunAt).toLocaleString()}` : 'never run'}</p>
+      <code data-hook-for="${escapeText(recipe.id)}" hidden></code>
+    </div><div class="stacked-row-side stacked-row-actions">
+      <button class="button button-secondary" type="button" data-run-recipe="${escapeText(recipe.id)}">Run now</button>
+      ${recipe.trigger === 'webhook' ? `<button class="button button-secondary" type="button" data-hook="${escapeText(recipe.id)}">${recipe.hasHook ? 'New link' : 'Create link'}</button>` : ''}
+      <button class="button button-secondary" type="button" data-delete-recipe="${escapeText(recipe.id)}">Delete</button>
+    </div></article>`;
+}
+
+function runRow(run) {
+  const label = RUN_STATUS_LABELS[run.status] || String(run.status).toUpperCase();
+  return `<article class="stacked-row"><div class="stacked-row-main">
+      <strong>${escapeText(run.recipeName || 'Recipe')}</strong>
+      <p>${escapeText(run.trigger)} trigger · ${new Date(run.createdAt).toLocaleString()}</p>
+      ${run.say ? `<p class="run-say">${escapeText(run.say)}</p>` : ''}
+    </div><div class="stacked-row-side"><span class="status-pill">${escapeText(label)}</span></div></article>`;
+}
+
+function connectionRow(connection) {
+  const tools = connection.tools.length
+    ? connection.tools.map((tool) => `<span class="status-pill" title="${escapeText(tool.description)}">${escapeText(tool.name)}${tool.readOnly ? ' · reads' : ' · writes'}</span>`).join(' ')
+    : '<p>No tools listed (refresh to check).</p>';
+  const ruleSelects = connection.tools.map((tool) => {
+    const current = connection.rules?.[tool.name] ?? (tool.readOnly ? 'auto' : 'ask');
+    const options = ['auto', 'ask', 'off']
+      .map((rule) => `<option value="${rule}" ${rule === current ? 'selected' : ''} ${rule === 'auto' && !tool.readOnly ? 'disabled' : ''}>${rule}</option>`)
+      .join('');
+    return `<span class="trigger-extra"><small>${escapeText(tool.name)}</small><select data-rule-conn="${escapeText(connection.id)}" data-rule-tool="${escapeText(tool.name)}" aria-label="Rule for ${escapeText(tool.name)}">${options}</select></span>`;
+  }).join('');
+  return `<article class="stacked-row"><div class="stacked-row-main">
+      <strong>${escapeText(connection.name)}</strong>
+      <code>${escapeText(connection.host)}</code>
+      <div class="stacked-row-actions">${tools}</div>
+      ${ruleSelects ? `<div class="stacked-row-actions">${ruleSelects}</div>` : ''}
+      ${connection.error ? `<p>⚠ ${escapeText(connection.error)}</p>` : ''}
+    </div><div class="stacked-row-side stacked-row-actions">
+      <button class="button button-secondary" type="button" data-refresh-conn="${escapeText(connection.id)}">Refresh tools</button>
+      <button class="button button-secondary" type="button" data-delete-conn="${escapeText(connection.id)}">Remove</button>
+    </div></article>`;
+}
+
+const recipeForm = document.querySelector('#recipe-form');
+const triggerSelect = document.querySelector('#recipe-trigger');
+
+triggerSelect.addEventListener('change', () => {
+  document.querySelector('#recipe-schedule-fields').hidden = triggerSelect.value !== 'schedule';
+  document.querySelector('#recipe-event').hidden = triggerSelect.value !== 'order_event';
+});
+
+recipeForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const trigger = triggerSelect.value;
+  let config = {};
+  if (trigger === 'schedule') {
+    config = {
+      run_at: document.querySelector('#recipe-time').value,
+      run_days: document.querySelector('#recipe-days').value.split(',').map(Number),
+    };
+  } else if (trigger === 'order_event') {
+    config = { event: document.querySelector('#recipe-event').value };
+  }
+  try {
+    const response = await fetch('/api/recipes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: document.querySelector('#recipe-name').value,
+        instructions: document.querySelector('#recipe-instructions').value,
+        trigger,
+        config,
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not save that recipe.');
+    showRecipesNotice(`Saved “${result.recipe.name}” — ${result.recipe.schedule}.`, 'success');
+    recipeForm.reset();
+    document.querySelector('#recipe-schedule-fields').hidden = true;
+    document.querySelector('#recipe-event').hidden = true;
+    triggerSelect.value = 'manual';
+    byte('success');
+    await refreshAutomations();
+  } catch (error) {
+    byte('error');
+    showRecipesNotice(error.message, 'error');
+  }
+});
+
+const connectionForm = document.querySelector('#connection-form');
+const authSelect = document.querySelector('#connection-auth');
+authSelect.addEventListener('change', () => {
+  document.querySelector('#connection-secret-fields').hidden = authSelect.value === 'none';
+});
+
+connectionForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  try {
+    const response = await fetch('/api/integrations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: document.querySelector('#connection-name').value,
+        url: document.querySelector('#connection-url').value,
+        auth: authSelect.value,
+        key: document.querySelector('#connection-key')?.value || '',
+        header: document.querySelector('#connection-header')?.value || '',
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not connect that server.');
+    showRecipesNotice(`Connected ${result.connection.name} — ${result.connection.tools.length} tool(s) available.`, 'success');
+    connectionForm.reset();
+    document.querySelector('#connection-secret-fields').hidden = true;
+    byte('success');
+    await refreshAutomations();
+  } catch (error) {
+    byte('error');
+    showRecipesNotice(error.message, 'error');
+  }
+});
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-approve], button[data-decline], button[data-run-recipe], button[data-delete-recipe], button[data-hook], button[data-refresh-conn], button[data-delete-conn]');
+  if (!button) return;
+  const json = async (url, { method = 'POST', body = '{}' } = {}) => {
+    const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'That did not work.');
+    return payload;
+  };
+  try {
+    if (button.dataset.approve) {
+      byte('work');
+      const result = await json(`/api/recipes/approvals/${button.dataset.approve}`, { body: JSON.stringify({ confirm: true }) });
+      showRecipesNotice(result.say || 'Ran.', 'success');
+      byte('ai:done');
+      await refreshAutomations();
+    } else if (button.dataset.decline) {
+      const result = await json(`/api/recipes/approvals/${button.dataset.decline}`, { body: JSON.stringify({ confirm: false }) });
+      showRecipesNotice(result.say || 'Declined. Nothing was changed.', 'info');
+      byte('wake');
+      await refreshAutomations();
+    } else if (button.dataset.runRecipe) {
+      const result = await json(`/api/recipes/${button.dataset.runRecipe}/run`);
+      showRecipesNotice(result.notice || 'Run queued.', 'success');
+      byte('work');
+      setTimeout(refreshAutomations, 1500);
+    } else if (button.dataset.deleteRecipe) {
+      await json(`/api/recipes/${button.dataset.deleteRecipe}`, { method: 'DELETE' });
+      showRecipesNotice('Recipe deleted.', 'info');
+      await refreshAutomations();
+    } else if (button.dataset.hook) {
+      const result = await json(`/api/recipes/${button.dataset.hook}/hook`);
+      const code = document.querySelector(`[data-hook-for="${button.dataset.hook}"]`);
+      if (code) { code.textContent = result.url; code.hidden = false; }
+      showRecipesNotice(result.notice, 'success');
+      button.textContent = 'New link';
+    } else if (button.dataset.refreshConn) {
+      const result = await json(`/api/integrations/${button.dataset.refreshConn}/refresh`);
+      showRecipesNotice(result.connection.error
+        ? `Refresh failed: ${result.connection.error}`
+        : `Refreshed — ${result.connection.tools.length} tool(s).`, result.connection.error ? 'error' : 'success');
+      await refreshAutomations();
+    } else if (button.dataset.deleteConn) {
+      await json(`/api/integrations/${button.dataset.deleteConn}`, { method: 'DELETE' });
+      showRecipesNotice('Connection removed.', 'info');
+      await refreshAutomations();
+    }
+  } catch (error) {
+    byte('error');
+    showRecipesNotice(error.message, 'error');
+  }
+});
+
+document.addEventListener('change', async (event) => {
+  const select = event.target.closest('select[data-rule-conn]');
+  if (!select) return;
+  try {
+    const response = await fetch(`/api/integrations/${select.dataset.ruleConn}/rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: select.dataset.ruleTool, rule: select.value }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not save that rule.');
+    showRecipesNotice(`${select.dataset.ruleTool} → ${select.value}`, 'success');
+  } catch (error) {
+    showRecipesNotice(error.message, 'error');
+    refreshAutomations();
+  }
+});
+
+// --- Byte: reactions to real events --------------------------------------------------
+
+const byteToggle = document.querySelector('#byte-reactions-toggle');
+if (byteToggle) {
+  byteToggle.addEventListener('click', () => {
+    const next = !(window.Byte?.enabled !== false);
+    window.Byte?.setEnabled(next);
+    byteToggle.textContent = next ? 'Turn off' : 'Turn on';
+  });
+}
+for (const button of document.querySelectorAll('[data-pet-action]')) {
+  button.addEventListener('click', () => byte(button.dataset.petAction === 'play' ? 'success' : 'ai:speak'));
+}
