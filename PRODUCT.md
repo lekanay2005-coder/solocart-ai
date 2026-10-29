@@ -32,9 +32,10 @@ This is a solo PayPal AI Hackathon prototype. The submission needs a working dem
 - OpenAI Responses API extraction is optional and configured server-side.
 - A local parser supports a credential-free preview.
 - PayPal Orders v2 is configured for Sandbox only; the server never uses PayPal Live endpoints.
-- There is no authentication, database, order persistence, webhook verification, inventory system, or production payment support.
+- The prototype has local sign-in accounts and HTTP-only sessions; order and activity history remain in the browser, while account records are stored in a local server file.
+- There is no managed database, verified email, account recovery, webhook verification, inventory system, or production payment support.
 - The target deploy platform and hosting provider are undecided.
 
 ## Evidence on Hand
 
-The PayPal AI Hackathon Devpost page says projects must meaningfully use PayPal and AI, demonstrate a working prototype, and include clear run instructions or a hosted demo. It requires a public, open-source repository with a visible license and a demo video under three minutes.
+The project is presented as a PayPal AI Hackathon prototype: AI-assisted order extraction leads to seller review, followed by PayPal Orders v2 Sandbox buyer approval and capture. The local parser and checkout preview are explicitly labeled fallbacks; they are not represented as the live AI or payment integration.

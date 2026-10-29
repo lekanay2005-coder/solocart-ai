@@ -390,8 +390,9 @@ h1 em { color: var(--amber); font-family: var(--sans); font-weight: 500; letter-
   background: linear-gradient(transparent, rgb(255 194 74 / 45%), transparent);
 }
 .intro-copy { max-width: 54ch; margin-top: 15px; color: var(--muted); font-size: 15px; line-height: 1.65; }
+.section-eyebrow { display: block; margin: 0 0 14px; color: var(--amber); font: 500 12px/1.4 var(--mono); letter-spacing: .12em; }
 .trust-note { max-width: 300px; padding: 16px 0 16px 18px; border-color: rgb(255 194 74 / 45%); }
-.trust-symbol, .simulation-tag { min-height: 24px; border: 1px solid rgb(255 194 74 / 25%); border-radius: 5px; background: rgb(255 194 74 / 9%); color: var(--amber); font: 500 11px/1 var(--mono); letter-spacing: .08em; }
+.trust-symbol, .simulation-tag { min-height: 24px; border: 1px solid rgb(255 194 74 / 25%); border-radius: 5px; background: rgb(255 194 74 / 9%); color: var(--amber); font: 500 12px/1 var(--mono); letter-spacing: .08em; }
 .trust-note p { color: var(--muted); font-size: 13px; line-height: 1.6; }
 .trust-note strong { color: var(--ink); font-size: 13px; }
 .panel { border: 1px solid var(--line); border-radius: 13px; background: linear-gradient(145deg, rgb(255 255 255 / 2.5%), transparent 42%), var(--surface); box-shadow: inset 0 1px rgb(255 255 255 / 3%); }
@@ -458,7 +459,7 @@ textarea:focus, input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px 
   box-shadow: inset 0 1px rgb(255 255 255 / 10%);
 }
 .wallet-card::after { position: absolute; right: -55px; bottom: -96px; width: 250px; height: 250px; border: 1px solid rgb(117 211 244 / 18%); border-radius: 50%; content: ''; box-shadow: 0 0 0 24px rgb(117 211 244 / 3%), 0 0 0 49px rgb(117 211 244 / 2%); pointer-events: none; }
-.wallet-top { color: #e5f4fc; font: 500 11px var(--mono); letter-spacing: .1em; }
+.wallet-top { color: #e5f4fc; font: 500 12px var(--mono); letter-spacing: .1em; }
 .wallet-label, .wallet-foot { color: #d2e4f0; }
 .wallet-balance { font-size: clamp(36px, 4.2vw, 52px); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.05em; }
 .status-pill { border: 1px solid rgb(148 216 246 / 30%); border-radius: 5px; background: rgb(18 86 125 / 48%); color: #dbf3ff; font: 500 11px var(--mono); letter-spacing: .04em; }
