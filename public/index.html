@@ -24,6 +24,7 @@
           <details class="more-nav">
             <summary>More</summary>
             <div class="more-menu">
+              <a href="#offline" data-page="offline">Offline pay</a>
               <a href="#routes" data-page="routes">Payment routes</a>
               <a href="#security" data-page="security">Security center</a>
               <a href="#companion" data-page="companion">Byte’s corner</a>
@@ -44,6 +45,7 @@
         <details class="more-nav mobile-more">
           <summary>More</summary>
           <div class="more-menu">
+            <a href="#offline" data-page="offline">Offline pay</a>
             <a href="#routes" data-page="routes">Payment routes</a>
             <a href="#security" data-page="security">Security center</a>
             <a href="#companion" data-page="companion">Byte’s corner</a>
@@ -89,6 +91,31 @@
             </div>
             <div class="ask-answer" id="ask-answer" hidden><pre id="ask-answer-text"></pre></div>
           </section>
+        </section>
+
+        <section class="app-page" data-view="offline" hidden aria-label="Offline payments">
+          <div class="page-title-row"><div><h1>Offline payments</h1><p class="intro-copy">Issue a signed payment request for a draft order, hand the link to your buyer — that step needs no connectivity — then redeem their signed confirmation on this desk.</p></div><span class="simulation-tag">SIGNED HANDOFF · SIMULATED SETTLEMENT</span></div>
+          <div class="offline-grid">
+            <section class="panel offline-issue">
+              <div class="section-heading"><div><span class="step-number">1</span><h2>Issue a request</h2></div><span class="step-caption">From a draft order</span></div>
+              <label class="field-label" for="offline-order">Choose a draft</label>
+              <select id="offline-order" class="offline-select" aria-label="Draft order to issue a request for"></select>
+              <div class="offline-actions"><button class="button button-primary" id="offline-issue" type="button">Issue payment request</button></div>
+              <div class="notice" id="offline-notice" role="status" aria-live="polite" hidden></div>
+              <div class="offline-issued" id="offline-issued" hidden>
+                <span class="simulation-tag">GIVE THIS TO THE BUYER</span>
+                <canvas class="offline-qr" id="offline-qr" width="220" height="220" aria-label="QR code of the payment request"></canvas>
+                <p class="offline-link" id="offline-paylink"></p>
+                <label class="field-label" for="offline-payload">Request payload (copyable)</label>
+                <textarea id="offline-payload" class="offline-payload" readonly rows="3" aria-label="Serialized payment request"></textarea>
+                <div class="offline-actions"><button class="button button-secondary" id="offline-copy" type="button">Copy payload</button><button class="button button-secondary" id="offline-copy-link" type="button">Copy payment link</button></div>
+              </div>
+            </section>
+            <section class="panel offline-list">
+              <div class="section-heading"><div><span class="step-number">2</span><h2>Requests &amp; redemption</h2></div><span class="step-caption">Redeem records once</span></div>
+              <div id="offline-requests" class="offline-rows"></div>
+            </section>
+          </div>
         </section>
 
         <section class="app-page" data-view="settings" hidden><div class="page-title-row"><div><h1>Settings</h1><p class="intro-copy">Make SoloCart comfortable for your workday.</p></div></div><section class="panel settings-list"><div class="setting-row"><div><strong>Appearance</strong><p>Switch between light and night mode.</p></div><button class="button button-secondary" id="theme-toggle" type="button">Use night mode</button></div><div class="setting-row"><div><strong>Private amounts</strong><p>Hide totals in overview, activity, and order lists. The checkout review stays visible.</p></div><button class="button button-secondary" id="settings-balance-toggle" type="button">Hide amounts</button></div><div class="setting-row"><div><strong>Account</strong><p id="settings-account-label">No account signed in</p></div><a class="button button-secondary" href="#account">Manage account</a></div>

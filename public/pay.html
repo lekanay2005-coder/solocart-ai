@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#080d14">
+    <meta name="description" content="Pay a SoloCart seller from your Reserve with a signed offline handoff. Settlement is simulated and labeled.">
+    <title>SoloCart — Pay offline</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <script>
+      document.documentElement.dataset.theme = localStorage.getItem('solocart-theme') || 'dark';
+    </script>
+    <script src="/pay.js" type="module"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="wordmark" href="/" aria-label="SoloCart home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>SoloCart</span></a>
+        <div class="topbar-right">
+          <span class="mode-indicator"><span class="mode-dot"></span><span>Offline payment</span></span>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro">
+          <div>
+            <span class="section-eyebrow">MORROW RESERVE · SIGNED HANDOFF</span>
+            <h1>Pay without<br><em>a connection.</em></h1>
+            <p class="intro-copy">Your device signs this payment with its own Ed25519 key. The seller’s server verifies the signature, the amount and the replay guard when the handoff arrives.</p>
+          </div>
+          <div class="trust-note"><span class="trust-symbol">HONEST</span><p><strong>What is real:</strong> signatures, amount binding, one-time redemption.<br><strong>What is simulated:</strong> the Reserve balance and settlement — no money moves offline.</p></div>
+        </section>
+
+        <div class="offline-grid">
+          <section class="panel offline-issue" aria-label="Payment request">
+            <div class="section-heading"><div><span class="step-number">A</span><h2>Payment request</h2></div><span class="status-pill" id="pay-status">LOADING</span></div>
+
+            <div id="pay-request-card">
+              <div id="pay-request-details">
+                <p class="intro-copy" id="pay-request-hint">Loading the request…</p>
+              </div>
+
+              <div class="offline-paste" id="pay-paste" hidden>
+                <label class="field-label" for="pay-paste-input">Paste a request payload instead</label>
+                <textarea id="pay-paste-input" class="offline-payload" rows="4" placeholder="Paste the base64 payload from the seller's screen or QR code"></textarea>
+                <div class="offline-actions"><button class="button button-secondary" id="pay-paste-load" type="button">Load payload</button></div>
+              </div>
+            </div>
+
+            <div class="notice" id="pay-notice" role="status" aria-live="polite" hidden></div>
+            <p class="disclaimer">Only the handoff happens offline. Settlement needs connectivity and is simulated in this prototype.</p>
+          </section>
+
+          <section class="panel offline-list" aria-label="Your Reserve">
+            <div class="section-heading"><div><span class="step-number">B</span><h2>Your Reserve</h2></div><span class="simulation-tag">SIMULATED SPENDING POWER</span></div>
+
+            <div id="pay-reserve-summary" class="offline-reserve-summary">
+              <p class="intro-copy">No Reserve on this device yet. Add funds while you are online — spending later needs no connectivity.</p>
+            </div>
+
+            <div class="offline-reserve-provision">
+              <label class="field-label" for="pay-reserve-amount">Add to Reserve (valid 24 hours)</label>
+              <div class="offline-provision-row">
+                <input id="pay-reserve-amount" type="number" min="0.5" max="10000" step="0.01" value="100.00" inputmode="decimal" aria-label="Reserve amount">
+                <button class="button button-secondary" id="pay-reserve-add" type="button">Add to Reserve</button>
+              </div>
+            </div>
+
+            <div class="offline-pay-box">
+              <label class="field-label" for="pay-label">Your label on the confirmation</label>
+              <input id="pay-label" type="text" maxlength="40" value="Customer" autocomplete="off">
+              <div class="offline-actions">
+                <button class="button button-primary" id="pay-do" type="button" disabled>Pay from Reserve (offline)</button>
+              </div>
+            </div>
+
+            <div class="offline-issued" id="pay-handoff" hidden>
+              <span class="simulation-tag">SIGNED CONFIRMATION · HAND IT TO THE SELLER</span>
+              <textarea id="pay-confirmation" class="offline-payload" readonly rows="5" aria-label="Signed confirmation payload"></textarea>
+              <div class="offline-actions">
+                <button class="button button-primary" id="pay-send" type="button">Hand confirmation to seller</button>
+                <button class="button button-secondary" id="pay-copy" type="button">Copy payload</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <p class="disclaimer pay-disclaimer">Morrow Reserve is pre-authorized spending power signed by this device. It is not custodial money: the key lives in this browser’s storage, and a cloned device could spend the same authorization twice — the seller’s server rejects the second redemption, which is why redemption exists at all. Full details: <code>docs/OFFLINE_PAYMENTS.md</code>.</p>
+      </main>
+
+      <footer class="footer"><span>SoloCart</span><span>Offline handoff · simulated settlement</span><span>No live funds</span></footer>
+    </div>
+  </body>
+</html>

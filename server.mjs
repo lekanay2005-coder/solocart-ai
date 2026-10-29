@@ -22,6 +22,7 @@ import * as paypal from './server/paypal.mjs';
 import * as orderslib from './server/orders.mjs';
 import * as assistant from './server/ai/assistant.mjs';
 import * as memory from './server/ai/memory.mjs';
+import * as offline from './server/offline/ledger.mjs';
 import { extract } from './server/ai/orders.mjs';
 import { activeLabel, providerStatus, providersReady } from './server/ai/providers.mjs';
 import { composeTotals, totals } from './server/summaries/spending.mjs';
@@ -209,6 +210,15 @@ async function handleApi(request, response, url) {
   if (path === '/api/ask' && method === 'POST') return askByte(request, response);
   if (path === '/api/ask/confirm' && method === 'POST') return confirmAsk(request, response);
 
+  // Phase 3: offline payments (Morrow port).
+  if (path === '/api/offline/request' && method === 'POST') return issueOfflineRequest(request, response);
+  if (path === '/api/offline/requests' && method === 'GET') return listOfflineRequests(request, response);
+  if (path.startsWith('/api/offline/share/') && method === 'GET') {
+    return shareOfflineRequest(response, path.slice('/api/offline/share/'.length));
+  }
+  if (path === '/api/offline/confirm' && method === 'POST') return confirmOfflinePayment(request, response);
+  if (path === '/api/offline/redeem' && method === 'POST') return redeemOfflinePayment(request, response);
+
   throw new HttpError(404, 'Not found.', 'not_found');
 }
 
@@ -288,6 +298,77 @@ function cookieValue(request, name) {
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${name}=`))
     ?.slice(name.length + 1) || '';
+}
+
+// --- offline payment routes (phase 3) -------------------------------------------
+
+/** Seller: issue a signed payment request for one of their draft orders. */
+async function issueOfflineRequest(request, response) {
+  const user = attachIdentity(request, response);
+  const body = await readJson(request);
+  const order = orderslib.getOrder(user.id, String(body.orderId || ''));
+  if (!order) throw new HttpError(404, 'Pick a draft order to issue a request for.', 'not_found');
+
+  const issued = offline.issueRequest(user, order);
+  orderslib.addEvent(user.id, {
+    kind: 'offline',
+    title: 'Offline payment request issued',
+    detail: `${issued.requestId} · share the payment link with the buyer`,
+    amount: issued.amount,
+  });
+  return sendJson(response, 201, {
+    requestId: issued.requestId,
+    orderId: issued.orderId,
+    payload: issued.payload,
+    request: issued.request,
+    status: issued.status,
+    expiresAt: issued.expiresAt,
+    payUrl: `/pay.html?r=${issued.requestId}`,
+    notice: 'The buyer opens this link (or pastes the payload) and pays from their Reserve — that step needs no connectivity.',
+  });
+}
+
+async function listOfflineRequests(request, response) {
+  const user = attachIdentity(request, response);
+  return sendJson(response, 200, { requests: offline.listRequests(user.id) });
+}
+
+/** Public read for the buyer page: the request body and its current state. */
+function shareOfflineRequest(response, requestId) {
+  const shared = offline.findShare(requestId);
+  if (!shared) throw new HttpError(404, 'That offline request does not exist.', 'not_found');
+  return sendJson(response, 200, shared);
+}
+
+/** Buyer: hand over the signed confirmation. Verified here, never settled here. */
+async function confirmOfflinePayment(request, response) {
+  attachIdentity(request, response); // rate budget for the public handoff
+  const body = await readJson(request);
+  const result = await offline.confirm({
+    requestId: String(body.requestId || ''),
+    confirmationInput: body.confirmation ?? body.payload ?? null,
+  });
+  return sendJson(response, 200, {
+    verified: true,
+    requestId: result.requestId,
+    status: 'confirmed',
+    settlement: 'pending',
+    notice: offline.CONFIRM_NOTICE,
+  });
+}
+
+/** Seller: redeem the verified confirmation — the only path to `settled`. */
+async function redeemOfflinePayment(request, response) {
+  const user = attachIdentity(request, response);
+  const body = await readJson(request);
+  const result = await offline.redeem(user, String(body.requestId || ''));
+  return sendJson(response, 200, {
+    redeemed: true,
+    requestId: result.requestId,
+    status: 'redeemed',
+    channel: result.channel,
+    notice: result.notice,
+  });
 }
 
 // --- auth routes ----------------------------------------------------------------

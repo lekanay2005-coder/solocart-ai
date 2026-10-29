@@ -624,3 +624,32 @@ textarea:focus, input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* --- Phase 3: offline payments ------------------------------------------------- */
+.offline-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 24px; align-items: start; }
+@media (max-width: 960px) { .offline-grid { grid-template-columns: 1fr; } }
+.offline-issue, .offline-list { padding: 24px; display: grid; gap: 16px; align-content: start; }
+.offline-select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.offline-select:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgb(255 194 74 / 14%); outline: none; }
+.offline-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.offline-issued { display: grid; gap: 12px; justify-items: start; border-top: 1px solid var(--line); padding-top: 16px; }
+.offline-qr { width: 220px; height: 220px; border-radius: 12px; background: #fff; border: 1px solid var(--line); }
+.offline-link { margin: 0; font: 500 12px/1.6 var(--mono); color: var(--muted); word-break: break-all; }
+.offline-payload { min-height: 96px; font: 500 12px/1.6 var(--mono); }
+.offline-rows { display: grid; }
+.offline-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+.offline-row:first-child { border-top: 0; padding-top: 0; }
+.offline-row h3 { margin: 8px 0 4px; font-size: 14px; }
+.offline-row p { margin: 0; font: 500 11px/1.5 var(--mono); color: var(--muted); word-break: break-all; }
+.offline-row-side { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.offline-row-side strong { font: 600 15px/1 var(--mono); }
+.offline-request-amount { display: flex; align-items: baseline; gap: 10px; }
+.offline-request-amount strong { font: 680 30px/1 var(--sans); letter-spacing: -.03em; }
+.offline-request-amount span { color: var(--muted); font-size: 14px; }
+.offline-provision-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.offline-provision-row input { flex: 1; min-width: 140px; min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); }
+.offline-reserve-summary, .offline-reserve-provision, .offline-pay-box { display: grid; gap: 12px; }
+.offline-reserve-provision, .offline-pay-box { border-top: 1px solid var(--line); padding-top: 16px; }
+.offline-pay-box input { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); }
+.pay-disclaimer { max-width: 860px; margin: 34px auto 10px; text-align: center; }
+.pay-disclaimer code { font-family: var(--mono); font-size: 12px; }

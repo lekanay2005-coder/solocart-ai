@@ -124,3 +124,55 @@ settings labels stale. The write is now guarded.
 can return the Sandbox approval URL. It cannot actually send anything — there
 is no email or SMS channel in SoloCart — so the reply hands the link to the
 seller to send themselves, and the docs say so.
+
+## Phase 3 — Offline payments (Morrow port)
+
+**Confirm and redeem are two separate server steps, and only redeem settles.**
+The brief's loop is "request → pay → confirm → redeem", so: `/api/offline/confirm`
+verifies the buyer's signature and parks the confirmation (`pending →
+confirmed`, order → `paid_offline_pending`); `/api/offline/redeem` re-verifies
+from scratch and only then records the redemption and settles the order. This
+keeps the rule "never mark an order settled before the server has done this"
+structurally true instead of trusting one call site.
+
+**Offline issuance is draft-only.** An order in `awaiting_buyer` is already
+moving through PayPal; letting it also take an offline payment risks charging
+twice. So an offline request can only come from a draft, and the offline path
+ends in `settled` (the PayPal path ends in `captured`). The brief's "settle
+through PayPal Sandbox **or** mark the order settled" reads, against the phase-1
+state machine (`draft → paid_offline_pending → settled`), as: PayPal settles the
+online path, offline redemption settles the ledger path — implemented as such,
+with the settlement channel recorded as simulated.
+
+**The buyer's device key lives in the browser (`localStorage`).** The two-window
+demo needs a payer device somewhere, and the browser is the honest choice: it
+mirrors Morrow's per-device keypair, it keeps the private key out of the server,
+and it exercises the vendored `@noble/curves` in real client code. The key name
+is `solocart.buyer-key.v1`, the Reserve state `solocart.reserve-state.v1`.
+
+**The protocol code exists twice — browser and server — with cross-tests.**
+The buyer must sign with zero connectivity, so it cannot import `server/`.
+Rather than a shared-root module (outside the brief's architecture),
+`public/offline/protocol.mjs` and `server/offline/protocol.mjs` are parallel
+ports of the same Morrow sources, and `tests/offline.test.mjs` verifies each
+side with the other's output. Phase 5's shared test-vector file pins the wire
+format a third time, for the mobile app.
+
+**Reserve fields use `.mjs` number amounts (minor units), like Morrow.**
+`amountMinor` stays a JS number end to end so the canonical JSON is identical
+to Morrow's; the ledger stores the same value as a SQLite INTEGER. Amounts
+above 2^53 minor units would lose precision — irrelevant for a checkout demo,
+noted here anyway.
+
+**Request TTL defaults to 60 minutes** (`OFFLINE_REQUEST_TTL_MINUTES`), not
+Morrow's 5: the buyer may need a few minutes to provision a Reserve on a fresh
+browser, and expiry is checked at confirm time regardless.
+
+**No camera scanning of QR codes.** The seller shows the QR and the payload
+string; the buyer page takes the link or a pasted payload. Adding a camera
+scanner (getUserMedia + jsQR decode loop) buys little in a two-window demo and
+jsQR stays vendored for the optical transport phase if it is ever needed.
+
+**Settlement wording is fixed, not configurable.** The redeem notice says
+"simulated settlement" because settlement genuinely is; hiding that behind a
+config flag is exactly the kind of quiet claim the brief forbids.

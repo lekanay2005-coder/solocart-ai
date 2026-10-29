@@ -365,6 +365,7 @@ function setPage(name) {
   document.querySelector('#app-pages').hidden = false;
   if (page === 'overview' || page === 'orders' || page === 'activity') renderLocalOrderPages();
   if (page === 'settings') refreshSettings();
+  if (page === 'offline') refreshOffline();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -433,6 +434,145 @@ function renderLocalOrderPages() {
     : '<div class="panel empty-state"><span>✦</span><strong>No drafts yet</strong><p>Start with a customer message and check each detail before checkout.</p><a href="#workspace">Create your first order</a></div>';
 }
 function escapeText(value) { const node = document.createElement('span'); node.textContent = String(value); return node.innerHTML; }
+
+// --- Offline payments (phase 3) --------------------------------------------------
+// Issue a signed request from a draft order, then redeem the buyer's signed
+// confirmation. Settlement is simulated and labeled as such everywhere.
+
+let offlineRequests = [];
+let lastIssued = null;
+
+const OFFLINE_STATUS_LABELS = {
+  pending: 'AWAITING BUYER',
+  confirmed: 'READY TO REDEEM',
+  redeemed: 'REDEEMED · SETTLED',
+  expired: 'EXPIRED',
+};
+
+function showOfflineNotice(message, kind = 'info') {
+  const element = document.querySelector('#offline-notice');
+  element.textContent = message;
+  element.dataset.kind = kind;
+  element.hidden = false;
+}
+
+async function refreshOffline() {
+  try {
+    const response = await fetch('/api/offline/requests');
+    if (response.ok) offlineRequests = (await response.json()).requests || [];
+  } catch {
+    // Keep the last known list when the server is unreachable.
+  }
+  renderOffline();
+}
+
+function renderOffline() {
+  const drafts = serverOrders.filter((order) => order.status === 'draft');
+  const select = document.querySelector('#offline-order');
+  const keep = select.value;
+  select.innerHTML = drafts.length
+    ? drafts.map((order) => `<option value="${escapeText(order.id)}">${escapeText((order.items || []).map((item) => `${item.quantity} × ${item.name}`).join(', ') || 'Order')} · ${amountsHidden ? '••••' : money(order.total)}</option>`).join('')
+    : '<option value="">No draft orders yet — create one in New order</option>';
+  if (drafts.some((order) => order.id === keep)) select.value = keep;
+  document.querySelector('#offline-issue').disabled = !drafts.length;
+
+  document.querySelector('#offline-requests').innerHTML = offlineRequests.length
+    ? offlineRequests.map(offlineRow).join('')
+    : '<div class="empty-state"><span>✦</span><strong>No requests yet</strong><p>Issue a signed payment request from a draft order to start an offline handoff.</p></div>';
+}
+
+function offlineRow(entry) {
+  const label = OFFLINE_STATUS_LABELS[entry.status] || String(entry.status).toUpperCase();
+  const amount = amountsHidden ? '••••' : money(entry.amount);
+  const action = entry.status === 'confirmed'
+    ? `<button class="button button-primary" type="button" data-redeem="${escapeText(entry.requestId)}">Redeem payment</button>`
+    : '';
+  return `<article class="offline-row"><div><span class="status-pill">${escapeText(label)}</span><h3>${escapeText(entry.note || 'Order payment')}</h3><p>${escapeText(entry.requestId)} · ${escapeText(new Date(entry.createdAt).toLocaleString())}</p></div><div class="offline-row-side"><strong>${amount}</strong>${action}</div></article>`;
+}
+
+async function issueOfflineRequest() {
+  const orderId = document.querySelector('#offline-order').value;
+  if (!orderId) return;
+  const button = document.querySelector('#offline-issue');
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/offline/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not issue that request.');
+    lastIssued = result;
+    document.querySelector('#offline-issued').hidden = false;
+    document.querySelector('#offline-paylink').textContent = `${location.origin}${result.payUrl}`;
+    document.querySelector('#offline-payload').value = result.payload;
+    showOfflineNotice(result.notice, 'success');
+    await renderOfflineQr(result.payload);
+    await refreshOffline();
+    refreshDesk().then(renderLocalOrderPages);
+  } catch (error) {
+    showOfflineNotice(error.message, 'error');
+  } finally {
+    button.disabled = !serverOrders.some((order) => order.status === 'draft');
+  }
+}
+
+async function renderOfflineQr(payload) {
+  const canvas = document.querySelector('#offline-qr');
+  try {
+    const { default: qrcode } = await import('/vendor/qrcode.mjs');
+    await qrcode.toCanvas(canvas, payload, {
+      width: 220,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#0b1622', light: '#ffffff' },
+    });
+    canvas.hidden = false;
+  } catch {
+    canvas.hidden = true; // payload + link still work without the QR render
+  }
+}
+
+async function redeemOffline(requestId, button) {
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/offline/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not redeem that payment.');
+    showOfflineNotice(result.notice, 'success');
+    await refreshOffline();
+    await refreshDesk();
+    renderLocalOrderPages();
+  } catch (error) {
+    showOfflineNotice(error.message, 'error');
+    await refreshOffline();
+  }
+}
+
+document.querySelector('#offline-issue').addEventListener('click', issueOfflineRequest);
+document.querySelector('#offline-requests').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-redeem]');
+  if (button) redeemOffline(button.dataset.redeem, button);
+});
+for (const id of ['#offline-copy', '#offline-copy-link']) {
+  document.querySelector(id).addEventListener('click', async (event) => {
+    const text = id === '#offline-copy'
+      ? document.querySelector('#offline-payload').value
+      : document.querySelector('#offline-paylink').textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      event.target.textContent = 'Copied';
+      setTimeout(() => { event.target.textContent = id === '#offline-copy' ? 'Copy payload' : 'Copy payment link'; }, 1600);
+    } catch {
+      showOfflineNotice('Copy failed — select the text and copy manually.', 'error');
+    }
+  });
+}
 
 function refreshSettings() {
   document.querySelector('#settings-account-label').textContent = signedInUser ? `Signed in as ${signedInUser.email}` : 'No account signed in';
