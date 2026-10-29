@@ -118,7 +118,7 @@ export function validateOrder(body) {
 const MAX_DRAFTS_PER_USER = 50;
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-const COLUMNS = 'id, user_id, status, currency, items, shipping, item_total, total, note, source, paypal_order_id, capture_request_id, created_at, updated_at, expires_at';
+const COLUMNS = 'id, user_id, status, currency, items, shipping, item_total, total, note, source, paypal_order_id, capture_request_id, created_at, updated_at, expires_at, customer';
 
 function hydrate(row) {
   if (!row) return null;
@@ -138,6 +138,7 @@ function hydrate(row) {
     itemTotal: row.item_total,
     total: row.total,
     note: row.note,
+    customer: row.customer,
     source: row.source,
     paypalOrderId: row.paypal_order_id,
     createdAt: row.created_at,
@@ -147,12 +148,12 @@ function hydrate(row) {
 }
 
 /** Persists a parsed draft, keeping the per-user draft list bounded. */
-export function createDraft(userId, order, source = 'local') {
+export function createDraft(userId, order, source = 'local', customer = null) {
   const db = getDb();
   const now = Date.now();
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO orders (${COLUMNS}) VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL)`,
+    `INSERT INTO orders (${COLUMNS}) VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL, ?)`,
   ).run(
     id,
     userId,
@@ -165,6 +166,7 @@ export function createDraft(userId, order, source = 'local') {
     source,
     now,
     now,
+    customer ? String(customer).slice(0, 60) : null,
   );
   db.prepare(
     "DELETE FROM orders WHERE user_id = ? AND status = 'draft' AND id <> ? AND created_at < ?",

@@ -59,17 +59,18 @@ async function loadPreviewSample() {
 }
 
 function renderConnectionState() {
-  const aiLabel = appConfig.aiMode === 'openai' ? 'OpenAI' : 'Local parser';
+  const aiLive = appConfig.aiMode !== 'local';
+  const aiLabel = aiLive ? String(appConfig.aiLabel || 'AI').split(' · ')[0] : 'Local parser';
   const paypalLabel = appConfig.paypalMode === 'sandbox' ? 'PayPal Sandbox' : 'PayPal preview';
   connectionLabel.textContent = `${aiLabel} · ${paypalLabel}`;
-  connectionDot.classList.toggle('live', appConfig.aiMode === 'openai' || appConfig.paypalMode === 'sandbox');
+  connectionDot.classList.toggle('live', aiLive || appConfig.paypalMode === 'sandbox');
 
-  if (appConfig.aiMode === 'openai') {
-    privacyNote.textContent = 'This order request is sent to OpenAI for extraction. Review every line before checkout.';
-    aiStepCopy.textContent = 'OpenAI extracts the items, quantities, and prices. You review the draft before checkout.';
+  if (aiLive) {
+    privacyNote.textContent = `This order request is sent to ${aiLabel} for extraction. Review every line before checkout.`;
+    aiStepCopy.textContent = `${aiLabel} extracts the items, quantities, and prices. You review the draft before checkout.`;
   } else {
-    privacyNote.textContent = 'Order details stay on this device until checkout. The parser is running locally.';
-    aiStepCopy.textContent = 'The local preview parser reads simple, explicitly priced requests. Add an OpenAI key for AI extraction.';
+    privacyNote.textContent = 'Order details stay on this server. Rules and the local parser read plainly priced requests; no AI key is configured.';
+    aiStepCopy.textContent = 'Rules and the local parser turn plainly priced requests into drafts. Add an AI key for extraction.';
   }
 
   if (appConfig.paypalMode === 'sandbox') {
@@ -98,7 +99,10 @@ prepareButton.addEventListener('click', async () => {
     renderOrder();
     await refreshDesk();
     renderLocalOrderPages();
-    const mode = result.mode === 'openai' ? 'AI extracted a draft.' : 'Local preview parser created a draft.';
+    const provider = String(appConfig.aiLabel || 'AI').split(' · ')[0];
+    const mode = result.mode === 'ai' ? `${provider} extracted a draft.`
+      : result.mode === 'rules' ? 'A pricing rule matched, so no AI was called.'
+        : 'Local preview parser created a draft.';
     showNotice(`${mode} Check each line before you continue.`, 'success');
   } catch (error) {
     showNotice(error.message || 'Could not organize that order.', 'error');
@@ -433,6 +437,7 @@ function escapeText(value) { const node = document.createElement('span'); node.t
 function refreshSettings() {
   document.querySelector('#settings-account-label').textContent = signedInUser ? `Signed in as ${signedInUser.email}` : 'No account signed in';
   document.querySelector('#theme-toggle').textContent = document.documentElement.dataset.theme === 'dark' ? 'Use light mode' : 'Use night mode';
+  refreshFacts();
   document.querySelector('#settings-balance-toggle').textContent = amountsHidden ? 'Show amounts' : 'Hide amounts';
 }
 function setAmountsHidden(hidden) {
@@ -468,7 +473,8 @@ async function refreshAuth() {
     document.querySelector('#profile-email').textContent = signedInUser.email;
     document.querySelector('#profile-badge').textContent = signedInUser.name.slice(0, 1).toUpperCase();
     document.querySelector('.avatar').textContent = signedInUser.name.slice(0, 1).toUpperCase();
-    document.querySelector('#welcome-name').textContent = `Welcome back, ${signedInUser.name.split(' ')[0]}`;
+    const welcome = document.querySelector('#welcome-name');
+    if (welcome) welcome.textContent = `Welcome back, ${signedInUser.name.split(' ')[0]}`;
   }
   refreshSettings();
 }
@@ -507,3 +513,176 @@ setAmountsHidden(amountsHidden);
 refreshAuth();
 renderLocalOrderPages();
 navigate();
+
+// --- Ask Byte ------------------------------------------------------------------
+// One message in, one plan out. Reads answer immediately; anything that sends,
+// changes or deletes comes back as a plan and waits for the confirm click.
+const askInput = document.querySelector('#ask-input');
+const askSend = document.querySelector('#ask-send');
+const askMic = document.querySelector('#ask-mic');
+const askNotice = document.querySelector('#ask-notice');
+const askPlan = document.querySelector('#ask-plan');
+const askPlanText = document.querySelector('#ask-plan-text');
+const askConfirm = document.querySelector('#ask-confirm');
+const askCancel = document.querySelector('#ask-cancel');
+const askAnswer = document.querySelector('#ask-answer');
+const askAnswerText = document.querySelector('#ask-answer-text');
+let askToken = null;
+
+function setAskNotice(message, kind = 'info') {
+  askNotice.textContent = message || '';
+  askNotice.dataset.kind = kind;
+  askNotice.hidden = !message;
+}
+
+function clearAskResult() {
+  askPlan.hidden = true;
+  askAnswer.hidden = true;
+  askToken = null;
+}
+
+function showByteReply(reply) {
+  const text = String(reply || '');
+  askAnswerText.textContent = text;
+  askAnswer.hidden = false;
+  const firstLine = text.split('\n')[0];
+  document.querySelector('#pet-status').textContent = firstLine.slice(0, 140);
+  document.querySelector('#byte-page-status').textContent = firstLine.slice(0, 180);
+}
+
+async function askByte(text) {
+  const value = String(text || '').trim();
+  if (!value) return setAskNotice('Type a command or a question for Byte first.', 'error');
+  clearAskResult();
+  setAskNotice('');
+  const label = askSend.textContent;
+  askSend.disabled = true;
+  askSend.textContent = 'Thinking…';
+  document.querySelector('#pet-status').textContent = 'Byte is thinking…';
+  try {
+    const response = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: value }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Byte could not read that.');
+    if (result.needsConfirm) {
+      askToken = result.token;
+      askPlanText.textContent = result.plan.reply || 'Byte wants to change something on your desk. Nothing has happened yet.';
+      askPlan.hidden = false;
+      setAskNotice('This one writes to your desk, so it waits for your confirm click.', 'info');
+      document.querySelector('#pet-status').textContent = 'Byte is waiting for your approval…';
+    } else {
+      showByteReply(result.reply);
+      setAskNotice('Read-only action — nothing was changed.', 'success');
+    }
+  } catch (error) {
+    setAskNotice(error.message, 'error');
+    document.querySelector('#pet-status').textContent = 'Byte could not work that out.';
+  } finally {
+    askSend.disabled = false;
+    askSend.textContent = label;
+  }
+}
+
+async function answerConfirmation(confirm) {
+  if (!askToken) return;
+  const token = askToken;
+  askToken = null;
+  askConfirm.disabled = true;
+  askCancel.disabled = true;
+  try {
+    const response = await fetch('/api/ask/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, confirm }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'That confirmation could not be completed.');
+    setAskNotice(result.reply, confirm ? 'success' : 'info');
+    if (confirm) showByteReply(result.reply);
+    await refreshDesk();
+    renderLocalOrderPages();
+  } catch (error) {
+    setAskNotice(error.message, 'error');
+  } finally {
+    askPlan.hidden = true;
+    askConfirm.disabled = false;
+    askCancel.disabled = false;
+  }
+}
+
+askSend.addEventListener('click', () => askByte(askInput.value));
+askInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') askByte(askInput.value); });
+askConfirm.addEventListener('click', () => answerConfirmation(true));
+askCancel.addEventListener('click', () => answerConfirmation(false));
+
+// Voice input where the browser offers the Web Speech API (typed input always works).
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognitionCtor) {
+  askMic.hidden = false;
+  const recognition = new SpeechRecognitionCtor();
+  recognition.lang = document.documentElement.lang || 'en';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  let listening = false;
+  askMic.addEventListener('click', () => {
+    if (listening) {
+      recognition.stop();
+      return;
+    }
+    try {
+      recognition.start();
+    } catch {
+      // Already starting; ignore.
+    }
+  });
+  recognition.onstart = () => { listening = true; askMic.textContent = 'Listening…'; };
+  recognition.onend = () => { listening = false; askMic.textContent = 'Speak'; };
+  recognition.onerror = () => { listening = false; askMic.textContent = 'Speak'; };
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    askInput.value = transcript;
+    askByte(transcript);
+  };
+}
+
+// --- What Byte remembers (Settings) ----------------------------------------------
+async function refreshFacts() {
+  const list = document.querySelector('#facts-list');
+  if (!list) return;
+  try {
+    const response = await fetch('/api/facts');
+    if (!response.ok) return;
+    const payload = await response.json();
+    const facts = payload.facts || [];
+    if (!facts.length) {
+      list.innerHTML = '<li class="facts-empty">Nothing remembered yet. Byte picks up facts you mention, and you can forget any of them here.</li>';
+      return;
+    }
+    list.replaceChildren(...facts.map((fact) => {
+      const item = document.createElement('li');
+      const text = document.createElement('span');
+      text.textContent = fact.text;
+      const forget = document.createElement('button');
+      forget.type = 'button';
+      forget.className = 'facts-forget';
+      forget.textContent = 'Forget';
+      forget.setAttribute('aria-label', `Forget: ${fact.text}`);
+      forget.addEventListener('click', async () => {
+        await fetch(`/api/facts/${encodeURIComponent(fact.id)}`, { method: 'DELETE' });
+        refreshFacts();
+      });
+      item.append(text, forget);
+      return item;
+    }));
+  } catch {
+    // The settings page stays usable when the server is unreachable.
+  }
+}
+
+document.querySelector('#facts-forget-all').addEventListener('click', async () => {
+  await fetch('/api/facts/forget-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  refreshFacts();
+});

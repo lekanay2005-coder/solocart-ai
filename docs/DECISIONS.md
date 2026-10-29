@@ -69,3 +69,58 @@ style/font origin because DESIGN.md specifies IBM Plex Sans and JetBrains Mono.
 **HOST env var added** (default `127.0.0.1`, unchanged from before) so a shared
 preview can bind `0.0.0.0` without editing code. `cp .env.example .env` still
 gives the same local behaviour as before.
+
+## Phase 2 — AI brain
+
+**`aiMode` is now `"provider" | "local"`, not `"openai"`.** The old client
+value assumed a single vendor; the server now reports `aiLabel`
+(`"OpenAI · gpt-4.1-mini"`) and a `providers[]` liveness list instead. The
+client was updated to match; no key material is ever returned.
+
+**`OPENAI_MODEL` now defaults to `gpt-4.1-mini`.** The brief warned that the
+old default (`gpt-6-luna`) is not a real model name. Every provider's model is
+overridable by env var, and a model rejected by a provider is just another
+fall-through, not an error the seller sees.
+
+**Rules before models, in both directions.** `segmentChunks()` splits a run-on
+message at each `$price` boundary, so the brief's example
+`"2 baskets $18 delivery $5"` parses to *2 × baskets @ $18 + $5 delivery*
+without a model at all (`mode: "rules"`). The same segmentation is shared by
+`isExplicitOrder()` and the local parser, so what skips the LLM is exactly
+what the LLM would have produced.
+
+**A `$0` unit price is a legal draft, never a legal checkout.** The extraction
+prompt asks the model to emit `unitPrice: 0` when a product was named without
+a price; `validateExtraction` keeps it (the seller fills it in) and
+`validateOrder` refuses it at checkout. Otherwise a missing price would either
+block the draft or silently become free.
+
+**Ask Byte's confirm gate is server-side.** A write plan is parked under a
+single-use token with a 5-minute TTL; only `POST /api/ask/confirm` runs it, and
+the token dies on first use whether the seller approves or cancels.
+`WRITE_ACTIONS` (a server constant) decides what is a write — never a field
+the model chose. Read actions answer in the same request.
+
+**Facts are learned automatically but are never hidden.** With a provider, a
+plan may carry up to 3 new seller facts; they are cleaned (secrets dropped),
+stored immediately, listed in Settings and deletable one by one or all at
+once. Butler gated this behind a "Learn about me" toggle; keeping it always-on
+with full visibility was judged simpler and no less honest. With zero keys no
+facts are ever invented.
+
+**Totals and recall answer without a model.** `composeTotals()` is pure code
+over SQL results; recall falls back to keyword search over the same rows. Both
+still cite sources, so the answer format does not change when keys are added.
+
+**`APP_TZ` env var (default `UTC`)** sets the time zone used for "today" / "this
+week" in totals and summaries; the browser does not send one, so a wrong
+clock in the client cannot skew server math.
+
+**Pre-existing bug fixed:** `refreshAuth()` wrote to `#welcome-name`, which has
+never existed in `index.html`, so signing in threw partway through and left the
+settings labels stale. The write is now guarded.
+
+**`getOrderLinks()` added to paypal.mjs** so "resend checkout link for Amira"
+can return the Sandbox approval URL. It cannot actually send anything — there
+is no email or SMS channel in SoloCart — so the reply hands the link to the
+seller to send themselves, and the docs say so.

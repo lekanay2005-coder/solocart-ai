@@ -145,6 +145,25 @@ export async function getOrderStatus(paypalOrderId, { fetchImpl = fetch } = {}) 
   return response.ok ? payload.status : null;
 }
 
+/**
+ * An existing Sandbox order's approval link and status — what Ask Byte shows
+ * when a seller asks to resend a checkout link. Returns nulls rather than
+ * throwing when PayPal no longer has the order.
+ */
+export async function getOrderLinks(paypalOrderId, { fetchImpl = fetch } = {}) {
+  const accessToken = await getAccessToken({ fetchImpl });
+  const response = await fetchImpl(
+    `${PAYPAL_BASE_URL}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return { status: null, approvalUrl: null };
+  const approvalUrl = payload.links?.find((link) => link.rel === 'approve')?.href
+    || payload.links?.find((link) => link.rel === 'payer-action')?.href
+    || null;
+  return { status: payload.status || null, approvalUrl };
+}
+
 // --- webhooks -------------------------------------------------------------------
 
 export const WEBHOOK_HEADERS = [
