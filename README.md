@@ -22,7 +22,7 @@ Account security is suitable for the local hackathon prototype only. It does not
 
 ## Design
 
-The web UI follows a Stitch-generated direction for a calm seller checkout workspace. [Open the SoloCart Stitch project](https://stitch.withgoogle.com/projects/2773758884601685044). Figma handoff is not included because Figma is not connected in this environment. The interface uses responsive HTML and CSS directly from the repository.
+The web UI applies the [SoloCart Stitch workspace](https://stitch.withgoogle.com/projects/2773758884601685044) as a single seller product, with a midnight navy canvas, amber order-preparation cues, and PayPal blue reserved for checkout. It defaults to night mode and retains a light theme in Settings. The capabilities, aurora, and login briefs informed the materials and interaction details; their fictional brands are not separate app destinations. See [DESIGN.md](./DESIGN.md) for the visual rules. The interface uses responsive HTML, CSS, and JavaScript directly from the repository.
 
 ## Requirements
 

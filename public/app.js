@@ -331,7 +331,7 @@ const workspaceSections = [...document.querySelectorAll('main > .intro, main > .
 const footer = document.querySelector('.footer');
 let signedInUser = null;
 let amountsHidden = localStorage.getItem('solocart-hide-amounts') === 'true';
-const savedTheme = localStorage.getItem('solocart-theme') || 'light';
+const savedTheme = localStorage.getItem('solocart-theme') || 'dark';
 document.documentElement.dataset.theme = savedTheme;
 
 function setPage(name) {
@@ -347,6 +347,10 @@ function setPage(name) {
     if (target && source && source.parentElement !== target) target.append(source);
   }
   document.querySelectorAll('[data-page]').forEach((link) => link.classList.toggle('active', link.dataset.page === page));
+  document.querySelectorAll('.more-nav').forEach((menu) => {
+    menu.open = false;
+    menu.classList.toggle('has-active', Boolean(menu.querySelector(`[data-page="${page}"]`)));
+  });
   document.querySelector('#app-pages').hidden = false;
   if (page === 'overview' || page === 'orders' || page === 'activity') renderLocalOrderPages();
   if (page === 'settings') refreshSettings();
@@ -399,6 +403,8 @@ document.querySelector('#settings-balance-toggle').addEventListener('click', () 
 document.querySelector('#theme-toggle').addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
+  document.documentElement.style.colorScheme = next;
+  document.querySelector('meta[name="theme-color"]').content = next === 'dark' ? '#080d14' : '#f4f6fa';
   localStorage.setItem('solocart-theme', next);
   refreshSettings();
 });
