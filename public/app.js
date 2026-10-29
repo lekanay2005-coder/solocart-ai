@@ -33,6 +33,8 @@ async function boot() {
   }
   renderConnectionState();
   if (appConfig.aiMode === 'local') await loadPreviewSample();
+  await refreshDesk();
+  renderLocalOrderPages();
   showPaymentReturn();
 }
 
@@ -42,7 +44,8 @@ async function loadPreviewSample() {
     const response = await fetch('/api/parse-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description }),
+      // preview: the sample on first load is parsed but never stored.
+      body: JSON.stringify({ description, preview: true }),
     });
     if (!response.ok) return;
     currentOrder = await response.json();
@@ -93,6 +96,8 @@ prepareButton.addEventListener('click', async () => {
     if (!response.ok) throw new Error(result.error || 'Could not organize that order.');
     currentOrder = result;
     renderOrder();
+    await refreshDesk();
+    renderLocalOrderPages();
     const mode = result.mode === 'openai' ? 'AI extracted a draft.' : 'Local preview parser created a draft.';
     showNotice(`${mode} Check each line before you continue.`, 'success');
   } catch (error) {
@@ -129,7 +134,9 @@ checkoutButton.addEventListener('click', async () => {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'PayPal Sandbox could not create this checkout.');
     if (result.mode !== 'sandbox' || !result.approvalUrl) {
-      return showNotice(result.message || 'Sandbox checkout is not connected yet.', 'error');
+      await refreshDesk();
+      renderLocalOrderPages();
+      return showNotice(result.message || 'Sandbox checkout is not connected yet.', 'success');
     }
     window.location.assign(result.approvalUrl);
   } catch (error) {
@@ -249,7 +256,7 @@ function showPaymentReturn() {
   if (payment === 'cancelled') showNotice('Checkout was cancelled. Your draft is still yours to edit.', 'success');
   else if (payment === 'COMPLETED') {
     showNotice('Sandbox payment completed. The order was approved in PayPal Sandbox.', 'success');
-    addLocalEvent('PayPal Sandbox order completed', 'Buyer approval and capture succeeded');
+    refreshDesk().then(renderLocalOrderPages);
   }
   else if (payment === 'error') showNotice('PayPal returned to the app, but sandbox capture did not complete. Check the PayPal test account and try again.', 'error');
   else if (payment === 'unavailable') showNotice('PayPal Sandbox return is unavailable until sandbox credentials are configured.', 'error');
@@ -364,25 +371,62 @@ document.querySelectorAll('a[href^="#"]').forEach((link) => link.addEventListene
   if (pageViews.some((view) => view.dataset.view === page)) setPage(page);
 }));
 
-function readLocalOrders() {
-  try { return JSON.parse(localStorage.getItem('solocart-orders') || '[]'); } catch { return []; }
+// Orders and activity live on the server, scoped to this desk's identity.
+// The browser keeps only the theme and the balance-hidden toggle.
+let serverEvents = [];
+let serverOrders = [];
+let serverSummary = { count: 0, amount: 0 };
+
+async function refreshDesk() {
+  try {
+    const [activityResponse, ordersResponse] = await Promise.all([
+      fetch('/api/activity'),
+      fetch('/api/orders'),
+    ]);
+    if (activityResponse.ok) {
+      const data = await activityResponse.json();
+      serverEvents = data.events || [];
+      serverSummary = data.summary || { count: 0, amount: 0 };
+    }
+    if (ordersResponse.ok) serverOrders = (await ordersResponse.json()).orders || [];
+  } catch {
+    // Keep the last known state when the server is unreachable.
+  }
 }
-function addLocalEvent(title, detail, amount = null) {
-  const events = readLocalOrders();
-  events.unshift({ id: crypto.randomUUID(), title, detail, amount, time: new Date().toISOString() });
-  localStorage.setItem('solocart-orders', JSON.stringify(events.slice(0, 40)));
+
+const ORDER_STATUS_LABELS = {
+  draft: 'DRAFT · REVIEW',
+  awaiting_buyer: 'AWAITING BUYER',
+  captured: 'PAID · SANDBOX',
+  expired: 'EXPIRED',
+  failed: 'FAILED',
+  paid_offline_pending: 'OFFLINE · PENDING',
+  settled: 'SETTLED',
+};
+
+function orderTile(order) {
+  const lines = (order.items || []).map((item) => `${escapeText(item.quantity)} × ${escapeText(item.name)}`).join(', ');
+  const amount = amountsHidden ? '••••' : money(order.total);
+  const action = order.status === 'draft' ? '<a class="button button-primary" href="#workspace">Review order</a>' : '';
+  return `<article class="panel order-tile"><span class="status-pill">${ORDER_STATUS_LABELS[order.status] || escapeText(String(order.status).toUpperCase())}</span><h2>Customer order</h2><p>${lines}</p><strong>${amount}</strong>${action}<small class="order-when">${escapeText(new Date(order.createdAt).toLocaleString())}</small></article>`;
 }
+
+const DESK_EMPTY = '<div class="empty-state"><span>✦</span><strong>Your desk is ready</strong><p>Recent order and checkout events will appear here. Your sample draft is ready in New order.</p><a href="#workspace">Open order builder</a></div>';
+
 function renderLocalOrderPages() {
-  const orders = readLocalOrders();
-  const amount = orders.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const balance = document.querySelector('#wallet-balance');
-  balance.textContent = amountsHidden ? '••••••' : money(amount);
-  document.querySelector('#draft-count').textContent = currentOrder ? '01' : '00';
-  document.querySelector('#paid-count').textContent = String(orders.length).padStart(2, '0');
-  const html = orders.length ? orders.map((item) => `<article class="activity-row"><span class="activity-mark">✓</span><div><strong>${escapeText(item.title)}</strong><small>${escapeText(item.detail)} · ${new Date(item.time).toLocaleString()}</small></div><b>${item.amount == null ? 'Saved' : (amountsHidden ? '••••' : money(item.amount))}</b></article>`).join('') : '<div class="empty-state"><span>✦</span><strong>Your desk is ready</strong><p>Recent order and checkout events will appear here. Your sample draft is ready in New order.</p><a href="#workspace">Open order builder</a></div>';
-  document.querySelector('#activity-list').innerHTML = html;
-  document.querySelector('#overview-activity').innerHTML = orders.length ? orders.slice(0, 3).map((item) => `<article class="activity-row"><span class="activity-mark">✓</span><div><strong>${escapeText(item.title)}</strong><small>${escapeText(item.detail)}</small></div><b>${item.amount == null ? 'Saved' : (amountsHidden ? '••••' : money(item.amount))}</b></article>`).join('') : '<div class="empty-state"><span>✦</span><strong>Your desk is ready</strong><p>Recent order and checkout events will appear here. Your sample draft is ready in New order.</p><a href="#workspace">Open order builder</a></div>';
-  document.querySelector('#orders-list').innerHTML = currentOrder ? `<article class="panel order-tile"><span class="status-pill">DRAFT · REVIEW</span><h2>Customer order</h2><p>${currentOrder.items.map((item) => `${escapeText(item.quantity)} × ${escapeText(item.name)}`).join(', ')}</p><strong>${amountsHidden ? '••••' : money(currentOrder.total)}</strong><a class="button button-primary" href="#workspace">Review order</a></article>` : '<div class="panel empty-state"><span>✦</span><strong>No drafts yet</strong><p>Start with a customer message and check each detail before checkout.</p><a href="#workspace">Create your first order</a></div>';
+  balance.textContent = amountsHidden ? '••••••' : money(serverSummary.amount);
+  const drafts = serverOrders.filter((order) => order.status === 'draft').length;
+  document.querySelector('#draft-count').textContent = String(Math.min(99, drafts)).padStart(2, '0');
+  document.querySelector('#paid-count').textContent = String(serverSummary.count).padStart(2, '0');
+  const row = (item) => `<article class="activity-row"><span class="activity-mark">✓</span><div><strong>${escapeText(item.title)}</strong><small>${escapeText(item.detail)} · ${new Date(item.time).toLocaleString()}</small></div><b>${item.amount == null ? 'Saved' : (amountsHidden ? '••••' : money(item.amount))}</b></article>`;
+  document.querySelector('#activity-list').innerHTML = serverEvents.length ? serverEvents.map(row).join('') : DESK_EMPTY;
+  document.querySelector('#overview-activity').innerHTML = serverEvents.length
+    ? serverEvents.slice(0, 3).map((item) => `<article class="activity-row"><span class="activity-mark">✓</span><div><strong>${escapeText(item.title)}</strong><small>${escapeText(item.detail)}</small></div><b>${item.amount == null ? 'Saved' : (amountsHidden ? '••••' : money(item.amount))}</b></article>`).join('')
+    : DESK_EMPTY;
+  document.querySelector('#orders-list').innerHTML = serverOrders.length
+    ? serverOrders.slice(0, 6).map(orderTile).join('')
+    : '<div class="panel empty-state"><span>✦</span><strong>No drafts yet</strong><p>Start with a customer message and check each detail before checkout.</p><a href="#workspace">Create your first order</a></div>';
 }
 function escapeText(value) { const node = document.createElement('span'); node.textContent = String(value); return node.innerHTML; }
 
@@ -453,10 +497,8 @@ document.querySelector('#signout-button').addEventListener('click', async () => 
   location.hash = '#signin';
 });
 
-// Put each finished checkout into the local activity log; this is not an account balance.
-document.querySelector('#create-checkout').addEventListener('click', () => {
-  if (appConfig.paypalMode !== 'sandbox' && currentOrder) addLocalEvent('Checkout preview opened', 'Preview only · no payment was made', currentOrder.total);
-});
+// Preview checkouts are recorded by the server, so the activity feed is
+// server-written end to end; the browser only reads it.
 for (const button of document.querySelectorAll('[data-pet-action]')) button.addEventListener('click', () => {
   document.querySelector('#byte-page-status').textContent = document.querySelector('#pet-status').textContent;
 });
