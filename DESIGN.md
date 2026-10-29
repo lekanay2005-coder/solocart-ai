@@ -12,7 +12,7 @@ The app defaults to a midnight navy canvas with lightly illuminated panels. Use 
 
 ## Typography and layout
 
-- Instrument Sans is the UI and display family; JetBrains Mono is reserved for short technical status labels.
+- IBM Plex Sans is the UI and display family; JetBrains Mono is reserved for short technical status labels.
 - Keep labels and supporting text readable at compact sizes; numbers use tabular figures.
 - Keep the order composer and editable order review together on desktop. Stack them on narrow screens.
 - Keep Overview, Orders, Activity, and New order in primary navigation. Place less frequent tools in More; use a fixed bottom navigation on phones.

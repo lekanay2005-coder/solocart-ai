@@ -126,7 +126,7 @@ textarea:focus, input:focus { border-color: #54a1d2; box-shadow: 0 0 0 3px rgba(
 .security-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .security-metrics > div { display: flex; flex-direction: column; gap: 6px; padding: 11px; background: #f7f9fc; border: 1px solid #e3eaf2; border-radius: 8px; }
 .security-metrics small { color: var(--muted); font-size: 12px; }.security-metrics strong { color: #12618d; font-size: 12px; }.security-metrics code { color: #42556d; font-size: 12px; }
-.pet-panel { display: flex; align-items: center; gap: 16px; padding: 19px 22px; background: #f1f5fc; border-color: #e0e6f3; }
+.pet-panel { display: flex; align-items: center; gap: 16px; padding: 19px 22px; background: var(--surface); border-color: var(--line); }
 .pet-avatar { display: grid; width: 54px; height: 54px; flex: none; place-items: center; border: 1px solid #dce5f2; border-radius: 17px; background: white; }
 .pet-avatar svg { width: 38px; height: 38px; fill: #e8f5fc; stroke: #0070ba; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .pet-avatar .pet-antenna, .pet-avatar .pet-eye { fill: #0070ba; }
@@ -265,7 +265,7 @@ textarea:focus, input:focus { border-color: #54a1d2; box-shadow: 0 0 0 3px rgba(
   --blue-light: #1a3041;
   --amber: #ffc24a;
   --cyan: #62c9f2;
-  --sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-family: var(--sans);
   background: var(--paper);
@@ -508,7 +508,7 @@ textarea:focus, input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px 
 :root[data-theme="light"] .topbar { border-color: rgb(15 23 42 / 9%); background: color-mix(in srgb, white 90%, transparent); }
 :root[data-theme="light"] .topnav a, :root[data-theme="light"] .more-nav summary { color: #586779; }
 :root[data-theme="light"] .topnav a.active, :root[data-theme="light"] .more-nav.has-active summary, :root[data-theme="light"] .topnav a:hover { color: #111a27; }
-:root[data-theme="light"] .more-menu { box-shadow: 0 18px 45px rgb(23 39 58 / 13%); }
+:root[data-theme="light"] .more-menu { box-shadow: 0 18px 45px rgb(0 0 0 / 14%); }
 :root[data-theme="light"] .mode-indicator { color: #5e470f; }
 :root[data-theme="light"] .wallet-card { background: radial-gradient(ellipse at 90% 4%, rgb(69 183 232 / 30%), transparent 46%), linear-gradient(135deg, #15517b, #0e4268 60%, #15314d); }
 :root[data-theme="light"] .quick-action { background: var(--surface); }
