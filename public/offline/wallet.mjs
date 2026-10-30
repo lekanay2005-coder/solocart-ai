@@ -1,8 +1,9 @@
 /**
  * The buyer's device: Ed25519 keypair + "Morrow Reserve" — pre-authorized
- * offline spending power. Port of `_sources/morrow/src/lib/{deviceKeys,reserve}.ts`
+ * offline spending power. Port of Morrow's `src/lib/{deviceKeys,reserve}.ts`
  * with AsyncStorage swapped for an injectable storage object (localStorage in
- * the browser, a Map shim in tests).
+ * the browser, a Map shim in tests). The source tree was removed in phase 6;
+ * `tests/fixtures/offline-vectors.json` pins the shared wire format.
  *
  * This is the *issuing* side only. Nothing here talks to the network — the
  * whole point is that provisioning (while online) and spending (possibly with

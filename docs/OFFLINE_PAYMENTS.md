@@ -1,7 +1,9 @@
 # Offline payments
 
 SoloCart's offline flow is a port of Morrow's signed payment-request protocol
-(`_sources/morrow/src/lib/*`, removed at phase 6). It lets a buyer authorize a
+(its `src/lib/*` sources; the original `_sources/` tree was removed in
+phase 6, and the shared fixture `tests/fixtures/offline-vectors.json` keeps
+server, browser and app byte-compatible). It lets a buyer authorize a
 payment with **zero connectivity**, hand a signed confirmation to the seller
 later, and lets the seller's server redeem that handoff exactly once.
 

@@ -290,3 +290,33 @@ side's field order, JSON key order or base64 drifted, one of them fails.
 **A paste box joins the scanner.** Real desks print QRs, but links die in
 chats and scanners miss — the scan screen takes a pasted payment link, request
 id or raw payload through the exact same acceptance path as the camera.
+
+## Phase 6 — Honest packaging
+
+**Licenses get a map, not a blanket.** `LICENSING.md` says which tree is
+what: original SoloCart is MIT, the ported Butler modules are **AGPL-3.0**
+(full text kept at `LICENSES/AGPL-3.0.txt`, copied out of the source before it
+was deleted) and remain AGPL even inside an MIT repo, and the Morrow-derived
+code ships with **no upstream license at all** — Morrow has no LICENSE file,
+so there is no permission to restate, and the file says that plainly instead
+of pretending. Butler's brand assets stay with their owner and are not here
+anyway; Byte's art is SoloCart's own.
+
+**The README stops underselling and stops overselling.** The old README
+described the phase-1 prototype ("no npm packages", browser-local storage).
+It now matches reality — Node 22.5, SQLite, offline handoff, automations, the
+mobile app — and carries an explicit *what works / what is simulated* table:
+PayPal is Sandbox-real, offline settlement moves no money, the multi-rail
+routes and security panel are interface simulations, BMONI is off by default
+because its KYC path is blocked.
+
+**Dead ends closed.** `_sources/` (28 MB of the two origin trees) is deleted
+as planned; its three code/doc references were rewritten to say the tree was
+removed in phase 6 and that `tests/fixtures/offline-vectors.json` is what now
+pins the wire format. The vendored jsQR decoder was never used — nothing on
+the desk scans a camera, the buyer phone and the mobile app do — so
+`jsqr.js` and its license went with it, and `scripts/vendor-browser-libs.mjs`
+was fixed to only claim what it can actually reproduce: noble regenerates
+byte-identically via the new `npm run vendor`, while `public/vendor/qrcode.mjs`
+is documented as the hand-converted ESM it really is (the script's original
+copy lines referenced packages this repo never had).

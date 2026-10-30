@@ -8,12 +8,17 @@
  *                            rewritten to relative paths so a browser can load
  *                            them with no import map (and therefore no inline
  *                            script, which the CSP forbids).
- *   public/vendor/jsqr.js    jsQR decoder (UMD global `jsQR`) — the fallback
- *                            for browsers without BarcodeDetector.
- *   public/vendor/qrcode.mjs qrcode-generator ESM — draws the QR stream.
  *
  * Only the import closure of Ed25519 + SHA-256 is copied, so the vendor
  * directory stays small. Licenses are copied beside the code.
+ *
+ * Not regenerated here — two frozen artifacts with provenance in
+ * THIRD_PARTY_NOTICES.md:
+ *   public/vendor/qrcode.mjs  hand-converted ESM of qrcode-generator's UMD
+ *                             build (unwrapped + `export default`), which is
+ *                             what the desk and buyer page import.
+ * Nothing on the desk scans a QR (the buyer page and the mobile app do the
+ * camera side), so there is no decoder to vendor.
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, normalize, posix } from 'node:path';
@@ -92,16 +97,11 @@ for (const [packageName, files, destination] of [
 // hashes files sit one level below noble/, so their own `./x.js` stays valid;
 // curves files reference `../hashes/…`, which is also one level below noble/.
 
-// --- QR encoder + decoder ----------------------------------------------------------
+// --- QR encoder (frozen) -----------------------------------------------------------
+// public/vendor/qrcode.mjs is a hand-converted ESM of qrcode-generator's UMD
+// build, kept byte-for-byte as the desk and buyer page import it; it is not
+// produced by this script. See THIRD_PARTY_NOTICES.md.
 
-mkdirSync(vendorDir, { recursive: true });
-copyFileSync(join(nodeModules, 'qrcode-generator', 'dist', 'qrcode.mjs'), join(vendorDir, 'qrcode.mjs'));
-copyFileSync(join(nodeModules, 'jsqr', 'dist', 'jsQR.js'), join(vendorDir, 'jsqr.js'));
-const jsqrLicense = join(nodeModules, 'jsqr', 'LICENSE');
-if (existsSync(jsqrLicense)) copyFileSync(jsqrLicense, join(vendorDir, 'jsqr.LICENSE'));
-const qrcodeLicense = join(nodeModules, 'qrcode-generator', 'LICENSE');
-if (existsSync(qrcodeLicense)) copyFileSync(qrcodeLicense, join(vendorDir, 'qrcode.LICENSE'));
-
-console.log(`vendored: noble curves ${curvesFiles.size} file(s), hashes ${hashesFiles.size} file(s), jsqr.js, qrcode.mjs`);
+console.log(`vendored: noble curves ${curvesFiles.size} file(s), hashes ${hashesFiles.size} file(s)`);
 console.log(`  curves: ${[...curvesFiles].join(', ')}`);
 console.log(`  hashes: ${[...hashesFiles].join(', ')}`);

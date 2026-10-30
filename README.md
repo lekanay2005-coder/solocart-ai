@@ -1,61 +1,148 @@
 # SoloCart
 
-**From customer message to confident checkout.** SoloCart is an AI checkout workspace for solo sellers. A seller describes the request, reviews the extracted items and prices, then hands the buyer off to a PayPal Sandbox approval page. Payment route controls, the security strip, and Byte the pet companion make the broader ideas in the brief explorable in one coherent demo.
+**From customer message to confident checkout.** SoloCart is an AI checkout
+workspace for solo sellers: the seller's desk runs in a browser, buyers can pay
+from a phone (the Expo app in `apps/morrow-mobile/`), and both are backed by
+one dependency-light Node server. A seller describes the request, reviews the
+extracted items and prices, and hands the buyer off to a PayPal **Sandbox**
+approval page — with an offline signed-handoff flow, automations with an
+approval gate, and Byte the pet companion alongside.
 
-## What the prototype does
+## What's in the box
 
-- Extracts products, quantities, unit prices, and delivery fees from a natural-language request.
-- Uses OpenAI's Responses API when `OPENAI_API_KEY` is configured. Without it, a local preview parser keeps the demo usable.
-- Lets the seller adjust each quantity, unit price, and delivery fee before checkout.
-- Calculates totals on the server and creates a PayPal Orders v2 `CAPTURE` order in Sandbox when credentials are set.
-- Sends the buyer to PayPal to approve the order, then captures the Sandbox order after PayPal returns to the app.
-- Lets the user explore a hypothetical payment split across PayPal USD, privacy credit, conditional token, and offline reserve. Only PayPal Sandbox is connected; the other routes are interface simulations and transfer no value.
-- Shows a demo-only security activity panel and a small optional pet companion with interactive snack/play buttons.
-- Includes eleven seller-desk screens: overview, orders, activity, order builder, payment routes, security center, Byte’s corner, settings, account, sign-in, and sign-up.
-- Adds a persistent light/night theme, a private-amount toggle, and an activity timeline saved in the current browser.
-- Provides local SoloCart accounts with salted scrypt password hashes, HttpOnly/SameSite sessions, an eight-hour expiry, same-origin request checks, and basic sign-in throttling.
-- Never exposes the OpenAI or PayPal secret in browser code. The PayPal API host defaults to the Sandbox host.
+- **The desk** (`public/`, one vanilla HTML/CSS/JS client): order workspace,
+  orders, activity, payment routes, security panel, offline pay, automations,
+  Byte's corner, account/settings — eleven views, light/night theme, private
+  amounts.
+- **The AI**: OpenAI's Responses API (and a Gemini/OpenRouter/Groq fallback
+  chain) turns a customer message into an editable draft. Without any key a
+  local parser keeps the demo usable and the header says which mode is live.
+  Ask Byte turns a typed command into one plan — reads run immediately, writes
+  wait for your confirm click. Provider memory and rules live on the server.
+- **Payments**: PayPal Orders v2 in **Sandbox only** (the API host is
+  hard-wired; live credentials cannot be used). The seller reviews every line
+  before PayPal ever sees the order.
+- **Offline payments**: a signed payment request leaves the desk as a link or
+  QR, the buyer signs the confirmation on their phone, and the desk redeems it
+  in a ledger with double-spend protection. The wire format is byte-identical
+  between server, browser and app — one shared fixture
+  (`tests/fixtures/offline-vectors.json`) is verified by all three.
+- **Automations**: recipes (scheduled or event-triggered) plan their steps with
+  an AI provider, run reads freely, and pause at a confirmation gate before any
+  write. MCP connections, outbound webhooks with an SSRF guard, an encrypted
+  secrets vault, and an AI-free morning brief / weekly recap round it out.
+- **The mobile app** (`apps/morrow-mobile/`): the Morrow wallet as SoloCart's
+  buyer app — QR/link scanning, a Reserve for offline spending power, and a
+  paste fallback for anything a camera misses. Point it at your desk with
+  `EXPO_PUBLIC_SOLOCART_URL`, or leave it unset for device-to-device mode with
+  zero setup in Expo Go.
 
-The local parser is only a preview fallback; the OpenAI connection is the AI path. The current interface handles USD orders. Order activity is kept in browser storage, while local account hashes are written to the ignored `data/users.json` file on the server. Sessions are in memory and end on restart.
+## What works, what is simulated
 
-Account security is suitable for the local hackathon prototype only. It does not include verified email, account recovery, passkeys/MFA, durable session storage, or a managed database. Do not reuse an important password here or expose this development server publicly.
+Be honest with your audience before demoing:
 
-## Design
-
-The web UI applies the [SoloCart Stitch workspace](https://stitch.withgoogle.com/projects/2773758884601685044) as a single seller product, with a midnight navy canvas, amber order-preparation cues, and PayPal blue reserved for checkout. It defaults to night mode and retains a light theme in Settings. The capabilities, aurora, and login briefs informed the materials and interaction details; their fictional brands are not separate app destinations. See [DESIGN.md](./DESIGN.md) for the visual rules. The interface uses responsive HTML, CSS, and JavaScript directly from the repository.
+| Piece | Status |
+| --- | --- |
+| Order extraction | Real when a provider key is set; otherwise the local parser, labeled as a fallback. |
+| PayPal checkout | Real PayPal **Sandbox** API calls — fake money, real approval and capture. Live payments are impossible by design. |
+| Offline signing / redemption | Real Ed25519 signatures, a real ledger, real double-spend rejection. **No money moves offline**: settlement is simulated, as the UI's `SIMULATED SETTLEMENT` tag says. |
+| Multi-rail payment routes | Interface simulation (PayPal Sandbox is the only connected rail). |
+| Security panel | Demo-only illustrative status. |
+| Automations / MCP | Real local execution and real MCP HTTP calls; recipes that need planning show an explicit "add OPENAI_API_KEY" failure instead of pretending. |
+| BMONI rail in the app | **Off by default** (`EXPO_PUBLIC_BMONI_MODE=live` enables it); its KYC path is blocked upstream, so the default install never touches it. |
+| Milestones and activity | Server-computed from real ledger data, written as events — not invented by the model. |
 
 ## Requirements
 
-- Node.js 20 or newer
-- Optional: an OpenAI API key
-- Optional: PayPal Developer app credentials for the **Sandbox**
+- **Node.js 22.5 or newer** (the server uses the built-in `node:sqlite`)
+- Optional: an AI provider key (`OPENAI_API_KEY` and/or Gemini/OpenRouter/Groq)
+- Optional: PayPal Developer **Sandbox** credentials
+- Optional (mobile): the Expo Go app on a phone
 
-## Run locally
+## Run the desk
 
 ```sh
 cp .env.example .env
+npm install
 npm start
 ```
 
-Open [http://localhost:4173](http://localhost:4173). No npm packages are required.
+Open [http://localhost:4173](http://localhost:4173). The sample order is
+already in the request box: press **Organize order**, review the draft, then
+**View checkout preview**.
 
-The sample order is already in the request box. Press **Organize order**, edit the draft if needed, and use **View checkout preview** to see the amount that would be sent. To test buyer approval, add PayPal Sandbox credentials in `.env` and restart the server.
+Run the test suite (114 tests, no network, no credentials):
 
-## Connect OpenAI
+```sh
+npm test
+```
 
-Set `OPENAI_API_KEY` in `.env`. You can also change `OPENAI_MODEL` to a model enabled for your account. With AI configured, the order description is sent to OpenAI for extraction. The model is instructed to treat that text as untrusted input and return order details only. SoloCart displays the result as a draft; sellers must review it before checkout.
+Data (accounts, sessions, orders, activity, offline ledger, recipes, runs)
+lives in `data/solocart.db` (SQLite, WAL). Delete that file to reset.
 
-## Connect PayPal Sandbox
+## Connect the AI (optional)
 
-1. Sign in to the [PayPal Developer Dashboard](https://developer.paypal.com/dashboard/) and create a Sandbox REST app.
-2. Copy its Sandbox client ID and secret into `.env` as `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
-3. Restart the app and create a Sandbox checkout. Approve it with a Sandbox personal test account.
+Set `OPENAI_API_KEY` in `.env` (see `.env.example` for the full fallback-chain
+knobs: `AI_PROVIDER_ORDER`, model names per provider). The order text is sent
+with instructions to treat it as untrusted input and return order details
+only; SoloCart displays the result as a draft for seller review.
 
-PayPal client credentials stay server-side. **Do not put live credentials in this prototype.** The app is hard-wired to PayPal's Sandbox API host and does not support live payments.
+## Connect PayPal Sandbox (optional)
 
-The Developer Dashboard uses your regular PayPal login. Use the generated **Personal** Sandbox account to approve the buyer flow; the **Business** Sandbox account represents the seller. See PayPal's [Sandbox getting-started guide](https://github.com/paypaldev/getting-started-with-paypal-sandbox) for account setup and the test-payment workflow.
+1. Create a Sandbox REST app in the [PayPal Developer Dashboard](https://developer.paypal.com/dashboard/).
+2. Put its Sandbox client ID and secret in `.env` as `PAYPAL_CLIENT_ID` /
+   `PAYPAL_CLIENT_SECRET` (plus `PAYPAL_WEBHOOK_ID` for webhook verification).
+3. Restart and check out with a Sandbox **personal** account as the buyer
+   (the **business** account is the seller).
 
-For a local demo, pending order IDs are kept in server memory for up to three hours. The return route only captures orders created by the running server, and capture retries reuse the same PayPal request ID. Restarting the server clears those pending IDs; a production app needs durable order state and verified PayPal webhooks.
+**Never use live credentials.** The server only ever talks to PayPal's
+Sandbox host. Pending order IDs live in memory for three hours; a restart
+clears them.
+
+## Run the mobile app
+
+```sh
+cd apps/morrow-mobile
+npm install
+cp .env.example .env        # then set EXPO_PUBLIC_SOLOCART_URL
+npx expo start              # scan the QR with Expo Go
+```
+
+`EXPO_PUBLIC_SOLOCART_URL` is the desk's origin, e.g.
+`http://192.168.1.10:4173` (no path, no trailing slash). Unset — or `local` —
+keeps the original device-to-device mode: no server contacted, the merchant
+phone verifies confirmations peer-to-peer. The mobile checks are
+`npm test` (vitest) and `npx tsc --noEmit` in the same directory.
+
+## Offline payments in one minute
+
+1. On the desk open **Offline pay**, pick a draft, **Issue payment request** —
+   a signed request is created (60-minute TTL, configurable).
+2. Hand the buyer the link/QR — that step needs no connectivity on their side.
+3. The buyer's app (or `pay.html` in a browser) signs the confirmation with
+   their Reserve or wallet; the server verifies it before anything is
+   deducted, then the desk redeems it into the ledger.
+4. Redemption settles it in SoloCart's book — the UI always says `pending`
+   until then, never "settled" by assertion.
+
+Details: [docs/OFFLINE_PAYMENTS.md](./docs/OFFLINE_PAYMENTS.md).
+
+## Design
+
+The web UI follows the
+[SoloCart Stitch workspace](https://stitch.withgoogle.com/projects/2773758884601685044):
+midnight navy canvas, amber order-preparation cues, PayPal blue reserved for
+checkout. See [DESIGN.md](./DESIGN.md) for the visual rules — they are
+unchanged by every phase in this repository.
+
+## More documentation
+
+- [docs/INTEGRATIONS.md](./docs/INTEGRATIONS.md) — recipes, approval gate, MCP, vault, webhooks
+- [docs/OFFLINE_PAYMENTS.md](./docs/OFFLINE_PAYMENTS.md) — the signed handoff and the ledger
+- [docs/AI.md](./docs/AI.md) — provider chain, Ask Byte, memory, rules
+- [docs/DECISIONS.md](./docs/DECISIONS.md) — why each phase was built the way it was
+- [DEMO-WALKTHROUGH.md](./DEMO-WALKTHROUGH.md) — the recording outline
+- [PRODUCT.md](./PRODUCT.md) — product framing
 
 ## Example request
 
@@ -65,14 +152,20 @@ Expected review: 2 × $18.00 items, $5.00 delivery, $41.00 total.
 
 ## Submission notes
 
-- Product: SoloCart
-- Short description: An AI order-to-checkout assistant for solo sellers. Turn a customer message into a reviewable PayPal order in seconds.
-- AI: OpenAI Responses API (`OPENAI_API_KEY`); local parser available for offline preview.
-- Payment integration: PayPal Orders v2 REST API in Sandbox, with buyer approval and capture.
-- Simulated concepts: multi-rail allocation preview, illustrative security status, and local pet companion.
-- Run instructions: `cp .env.example .env && npm start`
-- License: MIT
+- Product: SoloCart — desk, mobile buyer app, offline handoff, automations.
+- AI: OpenAI Responses API with a Gemini/OpenRouter/Groq fallback chain; local
+  parser only as a labeled fallback.
+- Payment integration: PayPal Orders v2 REST in **Sandbox**, buyer approval
+  and capture; offline redemption is a signed ledger, settlement simulated.
+- Run: `cp .env.example .env && npm install && npm start`
+- Tests: `npm test` (114 server tests) · `cd apps/morrow-mobile && npm test && npx tsc --noEmit`
+- Licensing: MIT for original SoloCart code, **AGPL-3.0 for Butler-derived
+  modules**, unlicensed Morrow-derived upstream — see [LICENSING.md](./LICENSING.md)
+  and [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
-See [DEMO-WALKTHROUGH.md](./DEMO-WALKTHROUGH.md) for the under-three-minute recording outline and final demo checklist.
+## What this prototype is not
 
-This is a hackathon prototype. It is not a production payment system: its account flow is local-only, order storage is browser-local, and it has no verified email, account recovery, multi-factor authentication, durable sessions, webhook verification, inventory checks, or live-payment support.
+It is a hackathon prototype, not a production payment system: no live PayPal,
+no verified email or account recovery, no MFA, no inventory. Offline
+settlement moves no money. Sessions and orders are local SQLite, not a managed
+database. Do not reuse an important password or expose this server publicly.

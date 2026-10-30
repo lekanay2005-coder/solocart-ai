@@ -1,7 +1,10 @@
 /**
- * Morrow's signed payment-request protocol, ported to plain ESM.
- *
- * Source of truth: `_sources/morrow/src/lib/{protocol,deviceKeys,confirmation,reserve}.ts`.
+ * Morrow's signed payment-request protocol, ported to plain ESM from its
+ * `src/lib/{protocol,deviceKeys,confirmation,reserve}.ts` files (the original
+ * source tree was removed in phase 6; the byte format it shared with this
+ * server is pinned by `tests/fixtures/offline-vectors.json`, which
+ * `tests/offline-vectors.test.mjs` verifies here and the mobile app verifies
+ * in `apps/morrow-mobile/src/lib/vectors.test.ts`).
  * The wire format is unchanged — same field order, same `JSON.stringify` of a
  * fixed-order object as the signed message, same base64 Ed25519 signatures —
  * so a Morrow client and this server verify each other's messages byte for
