@@ -244,3 +244,49 @@ layout".
 that event payloads and tool replies are data (Butler's guard sentence, kept
 verbatim in spirit), and event text only ever contains ids, statuses, totals
 and item lines built by the server.
+
+## Phase 5 — The mobile app joins SoloCart
+
+**The Expo app moves to `apps/morrow-mobile/` unchanged as an app, changed as
+a payment client.** Its screens, motion and Morrow identity stay (SoloCart's
+UI rules protect the desk, not the phone app); what changes is where money
+settlement reports to. The copy in it is honest throughout: receipts are
+`pending` until a server redemption or a peer scan, never "settled" by
+assertion.
+
+**BMONI stays behind its existing flag and is off by default.**
+`EXPO_PUBLIC_BMONI_MODE === 'live'` gates every BMONI call (`BMONI_LIVE` in
+send.tsx); with the flag unset — the default — the adapter is never invoked
+because its KYC path is blocked. Nothing in the default install touches
+`embedded-dev.bmoni.com`.
+
+**Server URL is `EXPO_PUBLIC_SOLOCART_URL`, and unset means local mode.**
+EXPO_PUBLIC_* vars are public in the bundle by design: this one only names
+where the desk runs, never a credential. Unset (or `local`) keeps the original
+device-to-device flow working with zero setup in Expo Go; set to an origin,
+the app talks to `/api/offline/*` — the exact phase-3 routes and byte formats,
+no server changes in this phase.
+
+**Signatures before money, always.** The confirm button probes the server
+(`GET /api/offline/requests/:id`) before anything is spent: unknown request →
+falls through to local signing; pending → settles via a Reserve-signed
+authorization (SoloCart payments run through the Reserve, so an empty Reserve
+stops before charging); expired/refused/unreachable → stop with nothing
+charged. In afterSettlement the confirmation is submitted first: a rejection
+throws before `deduct`, only a network gap continues — and then the receipt
+stays `pending`, the proof QR stays up, and the server accepts that same
+confirmation later.
+
+**One shared fixture proves the wire format, not prose.**
+`tests/fixtures/offline-vectors.json` holds a fixed keypair, a literal
+request (UTF-8 bullets in the merchant name on purpose), an allowance,
+an authorization and a confirmation with deterministic Ed25519 signatures,
+plus both serialized payloads. `scripts/gen-offline-vectors.mjs` regenerates
+it byte-identically. `tests/offline-vectors.test.mjs` verifies it with the
+server implementation; `apps/morrow-mobile/src/lib/vectors.test.ts` verifies
+the same bytes with the mobile one. Server signs → mobile verifies; if either
+side's field order, JSON key order or base64 drifted, one of them fails.
+
+**A paste box joins the scanner.** Real desks print QRs, but links die in
+chats and scanners miss — the scan screen takes a pasted payment link, request
+id or raw payload through the exact same acceptance path as the camera.
